@@ -1,15 +1,20 @@
-<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
-    <id>com.github.kreativshikkk.aiagentteam</id>
-    <name>Ai-Agent-Team</name>
-    <vendor url="https://github.com/Kreativshikkk/ai-agent-team#">
-        Nikita Magomedeminov, Artem Grigorash, Mariia Fadeeva, Iya Volkova
-    </vendor>
+    <id>com.example.agentteam</id>
+    <name>Agent Team Builder</name>
+    <vendor email="you@example.com">Your Name</vendor>
+
+    <description><![CDATA[
+    Wizard для создания «команды агентов». По Submit полностью
+    заменяет содержимое проекта выбранным ZIP-архивом.
+  ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
 
-    <resource-bundle>messages.MyBundle</resource-bundle>
-
     <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="Agent Team Builder"
+                    anchor="left"
+                    factoryClass="com.example.agentteam.net.TeamBuilderToolWindowFactory"/>
     </extensions>
+
+    <idea-version since-build="251" until-build="251.*"/>
 </idea-plugin>
