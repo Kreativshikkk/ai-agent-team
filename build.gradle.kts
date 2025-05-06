@@ -15,7 +15,7 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
     intellijPlatform { intellijIdeaCommunity("2025.1") }
 }
 
