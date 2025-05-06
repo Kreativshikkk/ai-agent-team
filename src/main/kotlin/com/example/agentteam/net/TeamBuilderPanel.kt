@@ -13,6 +13,7 @@ class TeamBuilderPanel(private val project: Project) {
     private val tlSpin   = JSpinner(SpinnerNumberModel(0, 0, 99, 1))
     private val techSpin = JSpinner(SpinnerNumberModel(0, 0, 99, 1))
     private val engSpin  = JSpinner(SpinnerNumberModel(0, 0, 99, 1))
+    private val qaSpin   = JSpinner(SpinnerNumberModel(0, 0, 99, 1))
 
     private val taskArea   = JTextArea(3, 60)
     private val promptArea = JTextArea(3, 60)
@@ -41,6 +42,7 @@ class TeamBuilderPanel(private val project: Project) {
                 add(roleRow("Team-leads", tlSpin,  "teamLead"));   add(Box.createVerticalGlue())
                 add(roleRow("Tech-leads", techSpin, "techLead"));  add(Box.createVerticalGlue())
                 add(roleRow("Engineers",  engSpin,  "engineer"));  add(Box.createVerticalGlue())
+                add(roleRow("QA Engineers", qaSpin, "qaEngineer")); add(Box.createVerticalGlue())
             },
             BorderLayout.CENTER
         )
@@ -85,16 +87,25 @@ class TeamBuilderPanel(private val project: Project) {
         }
 
         /* базовая конфигурация — один раз */
-        TeamStore.get().add(
-            TeamConfig(
-                taskArea.text.trim(),
-                tlSpin.value as Int,
-                techSpin.value as Int,
-                engSpin.value as Int,
-                globalPrompt = "",
-                rolePrompts  = rolePrompts.toMap()
-            )
+        val config = TeamConfig(
+            taskArea.text.trim(),
+            tlSpin.value as Int,
+            techSpin.value as Int,
+            engSpin.value as Int,
+            qaSpin.value as Int,
+            globalPrompt = "",
+            rolePrompts  = rolePrompts.toMap()
         )
+
+        TeamStore.get().add(config)
+
+        // Generate Python file with crewai code
+        try {
+            PythonCrewGenerator(project).generatePythonFile(config)
+            Messages.showInfoMessage(project, "Python file with crewai code has been generated successfully.", "Agent Team Builder")
+        } catch (e: Exception) {
+            Messages.showErrorDialog(project, "Failed to generate Python file: ${e.message}", "Agent Team Builder")
+        }
 
         root.removeAll()
 

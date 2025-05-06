@@ -8,6 +8,7 @@ data class TeamConfig(
     val teamLeads: Int,
     val techLeads: Int,
     val engineers: Int,
+    val qaEngineers: Int,
 
     /** общий дополнительный prompt, который вводится ПОСЛЕ Submit */
     val globalPrompt: String = "",
@@ -17,6 +18,7 @@ data class TeamConfig(
      *   "teamLead" → "…"
      *   "techLead" → "…"
      *   "engineer" → "…"
+     *   "qaEngineer" → "…"
      */
     val rolePrompts: Map<String, String> = emptyMap()
 )
