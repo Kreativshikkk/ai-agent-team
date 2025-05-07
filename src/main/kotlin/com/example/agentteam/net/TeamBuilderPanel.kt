@@ -183,7 +183,7 @@ class TeamBuilderPanel(private val project: Project) {
             val crewGenerator = PythonCrewGenerator(project)
             crewGenerator.generateJsonFile(config)
         } catch (e: Exception) {
-            Messages.showErrorDialog(project, "Failed to generate JSON crew file: ${e.message}", "Agent Team Builder")
+            Messages.showErrorDialog(project, "Failed to generate JSON crew file: ${e.message}", "Internie")
         }
 
         showChatScreen()
@@ -331,7 +331,7 @@ class TeamBuilderPanel(private val project: Project) {
 
     private fun addBubble(isUser: Boolean, text: String) {
         if (!isUser) {
-            val header = JLabel("Agent Team Builder").apply {
+            val header = JLabel("Internie").apply {
                 font = font.deriveFont(Font.BOLD, 12f)
                 foreground = JBColor.GRAY
                 horizontalAlignment = SwingConstants.RIGHT
