@@ -19,4 +19,13 @@ dependencies {
     intellijPlatform { intellijIdeaCommunity("2025.1") }
 }
 
+tasks.register<Exec>("runPython") {
+    group = "python"
+    description = "Запускает src/main/python/team.py"
+    // Если нужен конкретный интерпретатор — поменяй на full path или virtualenv/bin/python
+    commandLine("python3", "$projectDir/src/main/python/team.py")
+    // Если скрипт ждёт ввода или output большой, можно добавить:
+    isIgnoreExitValue = false
+}
+
 tasks.wrapper { gradleVersion = "8.5" }
