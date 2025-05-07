@@ -256,18 +256,69 @@ class TeamBuilderPanel(private val project: Project) {
             val pythonScriptPath = "${ConfigUtil.getPythonScriptsPath()}/team.py"
             val process = ProcessBuilder("python3.11", pythonScriptPath).redirectErrorStream(true).start()
 
-            val output = process.inputStream.bufferedReader().use { it.readText() }
-            addBubble(isUser = false, text = output.ifEmpty { "Script executed with no output" })
+            // Start a thread to read the process output incrementally
+            Thread {
+                try {
+                    val reader = process.inputStream.bufferedReader()
+                    var currentMessage = StringBuilder()
+                    var line: String?
+
+                    while (reader.readLine().also { line = it } != null) {
+                        if (line!!.contains("# Agent:")) {
+                            // If we have a current message buffer, display it
+                            if (currentMessage.isNotEmpty()) {
+                                val messageText = currentMessage.toString().trim()
+                                SwingUtilities.invokeLater {
+                                    addBubble(isUser = false, text = messageText)
+                                    chatContainer.revalidate()
+                                    chatContainer.repaint()
+                                    val vsb = (chatContainer.parent as JScrollPane).verticalScrollBar
+                                    vsb.value = vsb.maximum
+                                }
+                                currentMessage = StringBuilder()
+                            }
+
+                            // Start a new message with the current line
+                            currentMessage.append(line).append("\n")
+                        } else {
+                            // Add to the current message buffer
+                            currentMessage.append(line).append("\n")
+                        }
+                    }
+
+                    // Display any remaining content
+                    if (currentMessage.isNotEmpty()) {
+                        val messageText = currentMessage.toString().trim()
+                        SwingUtilities.invokeLater {
+                            addBubble(isUser = false, text = messageText)
+                            chatContainer.revalidate()
+                            chatContainer.repaint()
+                            val vsb = (chatContainer.parent as JScrollPane).verticalScrollBar
+                            vsb.value = vsb.maximum
+                        }
+                    }
+                } catch (e: Exception) {
+                    SwingUtilities.invokeLater {
+                        addBubble(isUser = false, text = "Error reading script output: ${e.message}")
+                        chatContainer.revalidate()
+                        chatContainer.repaint()
+                    }
+                }
+            }.start()
+
         } catch (e: Exception) {
             val jsonFilePath = "${ConfigUtil.getPythonScriptsPath()}/crew.json"
             addBubble(
                 isUser = false,
                 text = "Error running script: ${e.message}\nNote: A JSON file has been generated at $jsonFilePath"
             )
+            chatContainer.revalidate()
+            chatContainer.repaint()
         }
 
-        chatContainer.revalidate(); chatContainer.repaint()
-        addBubble(isUser = false, text = "Echo: $txt")
+        // No need for the echo message anymore
+        // chatContainer.revalidate(); chatContainer.repaint()
+        // addBubble(isUser = false, text = "Echo: $txt")
 
         chatContainer.revalidate()
         chatContainer.repaint()
