@@ -1,38 +1,62 @@
 from crewai import Agent, Crew, Process, Task
 from crewai_tools import FileWriterTool, CodeInterpreterTool
 from dotenv import load_dotenv
-import os, prompts
+import os
+import json
+import prompts
 
 
 load_dotenv()
-api_key = os.getenv("OPENAI_API_KEY")
 
 file_writer = FileWriterTool()
 shell = CodeInterpreterTool()
 
-team_lead = Agent(
-    role="Team Lead",
-    goal="Coordinate and delegate subtasks",
-    backstory=prompts.team_lead_prompt,
-    verbose=True,
-    allow_delegation=True
-)
-engineer = Agent(
-    role="Software Engineer",
-    goal="Implement code",
-    backstory=prompts.engineer_prompt,
-    verbose=True,
-    allow_delegation=False,
-    tools=[file_writer]
-)
-qa_engineer = Agent(
-    role="QA Engineer",
-    goal="Test code artifacts, run tests and ensure quality",
-    backstory=prompts.qa_prompt,
-    verbose=True,
-    allow_delegation=False,
-    tools=[file_writer, shell]
-)
+# Load agents from crew.json
+with open('crew.json', 'r') as f:
+    crew_data = json.load(f)
+
+# Create agents from crew.json
+agents = []
+manager_agent = None
+
+for agent_data in crew_data:
+    role = agent_data["role"]
+    goal = agent_data["goal"]
+
+    # Determine backstory based on role
+    backstory = ""
+    if hasattr(prompts, f"{role.lower().replace(' ', '_')}_prompt"):
+        # If role exists in prompts.py, use that prompt and append custom backstory
+        prompt_attr = f"{role.lower().replace(' ', '_')}_prompt"
+        backstory = getattr(prompts, prompt_attr)
+        backstory += f"\n\ncustom prompt: {agent_data['backstory']}"
+    else:
+        # If role doesn't exist in prompts.py, use backstory from crew.json
+        backstory = agent_data["backstory"]
+
+    # Determine tools based on role
+    tools = []
+    if "Software Engineer" in role:
+        tools = [file_writer]
+    elif "QA Engineer" in role:
+        tools = [file_writer, shell]
+
+    # Create agent
+    agent = Agent(
+        role=role,
+        goal=goal,
+        backstory=backstory,
+        verbose=True,
+        allow_delegation="Team Lead" in role,  # Only Team Lead can delegate
+        tools=tools,
+        llm="vertex_ai/gemini-2.0-flash-001"
+    )
+
+    # Assign as manager or regular agent
+    if "Team Lead" in role:
+        manager_agent = agent
+    else:
+        agents.append(agent)
 
 task = Task(
     description="Create console TicTacToe game",
@@ -40,12 +64,12 @@ task = Task(
 )
 
 crew = Crew(
-    agents=[engineer, qa_engineer],
-    manager_agent=team_lead,
+    agents=agents,
+    manager_agent=manager_agent,
     tasks=[task],
     process=Process.hierarchical,
     planning=True,
-    verbose=True,
+    verbose=True
 )
 
 result = crew.kickoff()
