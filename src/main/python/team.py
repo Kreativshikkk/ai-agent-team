@@ -5,6 +5,7 @@ import subprocess
 import sys
 
 from crewai import Agent, Crew, Process, Task
+from crewai.tools import tool
 from crewai_tools import FileWriterTool, FileReadTool
 from dotenv import load_dotenv
 
@@ -14,6 +15,34 @@ load_dotenv()
 
 file_writer = FileWriterTool()
 file_read = FileReadTool()
+current_path = os.path.dirname(os.path.abspath(__file__))
+
+@tool("ask customer")
+def ask_customer(question: str) -> str:
+    """
+    Interactive tool for communicating with the customer.
+
+    Parameters
+    ----------
+    question : str
+        A question formulated by the TeamLead agent
+        (e.g., clarification of design requirements).
+
+    Returns
+    -------
+    str
+        The customer's response entered manually via STDIN.
+
+    Notes
+    -----
+    In a production version, this block can be replaced with integration
+    of a Slack/Telegram bot or a webhook callback. Here, `input()` is used
+    for demonstration purposes.
+    """
+    with open(os.path.join(current_path, "question.json"), "w", encoding="utf-8") as f:
+        json.dump({"question": question}, f, ensure_ascii=False, indent=4)
+
+    return input(f"\nQUESTION to customer:\n{question}\n> ")
 
 # Read config.properties to get base_path
 config = configparser.ConfigParser()
@@ -60,9 +89,9 @@ for agent_data in crew_data[1:]:
         goal=goal,
         backstory=backstory,
         verbose=True,
-        allow_delegation=("Team Lead" or "QA Engineer") in role,  # Only Team Lead can delegate
+        allow_delegation=True,  # Only Team Lead can delegate
         tools=tools,
-        llm="vertex_ai/gemini-2.0-flash-001"
+        llm="gpt-4.1"
     )
 
     # Assign as manager or regular agent
@@ -76,12 +105,14 @@ task_description = sys.argv[1] if len(sys.argv) > 1 else "Create console TicTacT
 
 task = Task(
     description=task_description,
-    expected_output="Working implementation and passing tests"
+    expected_output="Working implementation and passing tests",
+    async_execution=True
 )
 
 task_debug = Task(
     description="Analyze errors and fix them!",
-    expected_output="Working implementation and passing tests"
+    expected_output="Working implementation and passing tests",
+    async_execution=True
 )
 
 crew = Crew(
@@ -99,16 +130,7 @@ team_lead_debug = Agent(
     backstory=prompts.team_lead_debug_prompt,
     verbose=True,
     allow_delegation=True,
-    llm="vertex_ai/gemini-2.0-flash-001"
-)
-
-debug_crew = Crew(
-    agents=agents,
-    manager_agent=team_lead_debug,
-    tasks=[task_debug],
-    process=Process.hierarchical,
-    planning=True,
-    verbose=True
+    llm="gpt-4.1"
 )
 
 os.chdir(project_path)
@@ -120,6 +142,19 @@ if __name__ == "__main__":
             print("💥 Tests failed, feeding errors back into kickoff…")
             with open("test_errors.txt", "w") as f:
                 f.write(previous_errors)
+            for agent in agents:
+                if agent.role == "Software Engineer":
+                    agent.backstory = prompts.debug_engineer_prompt
+                elif agent.role == "QA Engineer":
+                    agent.backstory = prompts.debug_tester_prompt
+            debug_crew = Crew(
+                agents=agents,
+                manager_agent=team_lead_debug,
+                tasks=[task_debug],
+                process=Process.hierarchical,
+                planning=True,
+                verbose=True,
+            )
             result = debug_crew.kickoff(inputs={"test_errors": previous_errors})
         else:
             print("🚀 First iteration: kickoff…")
