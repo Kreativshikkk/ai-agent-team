@@ -22,6 +22,7 @@ class TeamBuilderPanel(private val project: Project) {
     private val qaSpin   = JSpinner(SpinnerNumberModel(0, 0, 99, 1))
     private val taskArea = JTextArea(3, 60)
     private val rolePrompts = mutableMapOf<String, String>()
+    private var firstMessageSent = false
 
     // chat state
     private lateinit var chatContainer: JPanel
@@ -188,8 +189,11 @@ class TeamBuilderPanel(private val project: Project) {
                 foreground = JBColor.GRAY
             })
         }
+        chatContainer.add(Box.createVerticalGlue())
+
         chatContainer.add(infoPanel)
 
+        chatContainer.add(Box.createVerticalGlue())
         // 3) уже потом скролл с сообщениями
         val chatScroll = JScrollPane(
             chatContainer,
@@ -220,6 +224,14 @@ class TeamBuilderPanel(private val project: Project) {
     private fun onSend() {
         val txt = inputField.text.trim().takeIf(String::isNotEmpty) ?: return
         inputField.text = ""
+
+        // при первом сообщении удаляем explanatory-блок и glues
+        if (!firstMessageSent) {
+            chatContainer.removeAll()
+            firstMessageSent = true
+        }
+
+        // добавляем bubble, как обычно
         addBubble(isUser = true,  text = txt)
 
         // Note: We now generate a JSON file instead of a Python script
@@ -236,9 +248,14 @@ class TeamBuilderPanel(private val project: Project) {
         }
 
         chatContainer.revalidate(); chatContainer.repaint()
+        addBubble(isUser = false, text = "Echo: $txt")
+
+        chatContainer.revalidate()
+        chatContainer.repaint()
+
         SwingUtilities.invokeLater {
-            (chatContainer.parent as JScrollPane).verticalScrollBar.value =
-                (chatContainer.parent as JScrollPane).verticalScrollBar.maximum
+            val vsb = (chatContainer.parent as JScrollPane).verticalScrollBar
+            vsb.value = vsb.maximum
         }
     }
 
