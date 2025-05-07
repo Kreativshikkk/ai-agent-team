@@ -5,6 +5,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.vfs.LocalFileSystem
 import java.io.File
+import com.example.agentteam.net.ConfigUtil
 
 /**
  * Generates JSON file with crew configuration based on the TeamConfig.
@@ -98,8 +99,8 @@ class PythonCrewGenerator(private val project: Project) {
      * @return The created VirtualFile.
      */
     private fun createJsonFile(content: String): VirtualFile {
-        val basePath = "/Users/iya/jb/hackathon-25/ai-agent-team/src/main/python"
-        val pluginDir = File(basePath)
+        val pythonScriptsPath = ConfigUtil.getPythonScriptsPath()
+        val pluginDir = File(pythonScriptsPath)
         if (!pluginDir.exists()) {
             pluginDir.mkdirs()
         }

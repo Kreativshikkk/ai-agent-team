@@ -8,6 +8,7 @@ import javax.swing.*
 import javax.swing.border.EmptyBorder
 import javax.swing.border.LineBorder
 import com.example.agentteam.net.PythonCrewGenerator
+import com.example.agentteam.net.ConfigUtil
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 
@@ -237,14 +238,16 @@ class TeamBuilderPanel(private val project: Project) {
         // Note: We now generate a JSON file instead of a Python script
         // This execution logic might need to be updated in the future
         try {
-            val process = ProcessBuilder("python3", "/Users/iya/jb/hackathon-25/ai-agent-team/src/main/python/crew_ai_team.py")
+            val pythonScriptPath = "${ConfigUtil.getPythonScriptsPath()}/crew_ai_team.py"
+            val process = ProcessBuilder("python3", pythonScriptPath)
                 .redirectErrorStream(true)
                 .start()
 
             val output = process.inputStream.bufferedReader().use { it.readText() }
             addBubble(isUser = false, text = output.ifEmpty { "Script executed with no output" })
         } catch (e: Exception) {
-            addBubble(isUser = false, text = "Error running script: ${e.message}\nNote: A JSON file has been generated at /Users/iya/jb/hackathon-25/ai-agent-team/src/main/python/crew.json")
+            val jsonFilePath = "${ConfigUtil.getPythonScriptsPath()}/crew.json"
+            addBubble(isUser = false, text = "Error running script: ${e.message}\nNote: A JSON file has been generated at $jsonFilePath")
         }
 
         chatContainer.revalidate(); chatContainer.repaint()
