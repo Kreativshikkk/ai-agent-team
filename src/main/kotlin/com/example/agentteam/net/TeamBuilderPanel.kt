@@ -123,7 +123,7 @@ class TeamBuilderPanel(private val project: Project) {
                 val backstory = backstoryArea.text.trim()
 
                 val spinner = JSpinner(SpinnerNumberModel(0, 0, 99, 1))
-                val key     = role.replace("\\s+".toRegex(), "").decapitalize()
+                val key     = role.replace("\\s+".toRegex(), "").replaceFirstChar { it.lowercase() }
                 rolePrompts[key] = """
       role: $role
       goal: $goal
@@ -244,6 +244,24 @@ class TeamBuilderPanel(private val project: Project) {
         cardPanel.revalidate(); cardPanel.repaint()
     }
 
+    private fun getScrollPaneFor(component: Component): JScrollPane {
+        return SwingUtilities.getAncestorOfClass(JScrollPane::class.java, component) as JScrollPane
+    }
+
+    private fun scrollChatToBottom() {
+        SwingUtilities.invokeLater {
+            val scrollPane = getScrollPaneFor(chatContainer)
+            val vsb = scrollPane.verticalScrollBar
+            vsb.value = vsb.maximum
+        }
+    }
+
+    private fun scrollChatToBottomInUIThread() {
+        val scrollPane = getScrollPaneFor(chatContainer)
+        val vsb = scrollPane.verticalScrollBar
+        vsb.value = vsb.maximum
+    }
+
     private fun onSend() {
         val txt = inputField.text.trim().takeIf(String::isNotEmpty) ?: return
         inputField.text = ""
@@ -263,10 +281,7 @@ class TeamBuilderPanel(private val project: Project) {
         chatContainer.repaint()
 
         // Scroll to show the confirmation message
-        SwingUtilities.invokeLater {
-            val vsb = (chatContainer.parent as JScrollPane).verticalScrollBar
-            vsb.value = vsb.maximum
-        }
+        scrollChatToBottom()
 
         // Note: We now generate a JSON file instead of a Python script
         // This execution logic might need to be updated in the future
@@ -294,8 +309,7 @@ class TeamBuilderPanel(private val project: Project) {
                                     addBubble(isUser = false, text = messageText)
                                     chatContainer.revalidate()
                                     chatContainer.repaint()
-                                    val vsb = (chatContainer.parent as JScrollPane).verticalScrollBar
-                                    vsb.value = vsb.maximum
+                                    scrollChatToBottom()
                                 }
                                 currentMessage = StringBuilder()
                             }
@@ -428,8 +442,7 @@ class TeamBuilderPanel(private val project: Project) {
         chatContainer.repaint()
 
         SwingUtilities.invokeLater {
-            val vsb = (chatContainer.parent as JScrollPane).verticalScrollBar
-            vsb.value = vsb.maximum
+            scrollChatToBottomInUIThread()
         }
     }
 
