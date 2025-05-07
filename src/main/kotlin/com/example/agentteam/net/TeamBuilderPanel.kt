@@ -23,13 +23,17 @@ class TeamBuilderPanel(private val project: Project) {
     }
 
     // ─── widgets & state ─────────────────────────
-    private val tlSpin = JSpinner(SpinnerNumberModel(0, 0, 99, 1))
-    private val techSpin = JSpinner(SpinnerNumberModel(0, 0, 99, 1))
+    private val tlSpin = JSpinner(SpinnerNumberModel(1, 1, 1, 1)).apply { isEnabled = false }
     private val engSpin = JSpinner(SpinnerNumberModel(0, 0, 99, 1))
     private val qaSpin = JSpinner(SpinnerNumberModel(0, 0, 99, 1))
     private val taskArea = JTextArea(3, 60)
     private val rolePrompts = mutableMapOf<String, String>()
     private var firstMessageSent = false
+
+    // Buttons
+    private lateinit var plusButton: JButton
+    private lateinit var createBtn: JButton
+    private lateinit var chatButton: JButton
 
     // chat state
     private lateinit var chatContainer: JPanel
@@ -47,6 +51,20 @@ class TeamBuilderPanel(private val project: Project) {
 
     // ─── Roles screen ─────────────────────────────
     private fun createRolesPanel(): JPanel = JPanel(BorderLayout()).apply {
+        // ▲ Вверху – кнопка «Chat» (скрыта по умолчанию)
+        chatButton = JButton("Chat").apply {
+            toolTipText = "Вернуться в чат"
+            addActionListener { showChatScreen() }
+            isVisible = false
+        }
+        add(
+            JPanel(FlowLayout(FlowLayout.RIGHT, 0, 0)).apply {
+                border = EmptyBorder(4, 8, 4, 8)
+                add(chatButton)
+            },
+            BorderLayout.NORTH
+        )
+
         // Banner or spacer
         val icon = IconLoader.getIcon("/icons/banner.png", TeamBuilderPanel::class.java)
         val bannerPanel = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply {
@@ -64,27 +82,25 @@ class TeamBuilderPanel(private val project: Project) {
             border = EmptyBorder(10, 0, 10, 0)                  // 8px сверху и снизу от картинки
         }
 
-// если вы оборачиваете баннер в northPanel:
-        val northPanel = JPanel().apply {
+        val centerPanel = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             add(bannerPanel)
             add(welcomeLabel)                                 // теперь сразу под картинкой
         }
-        add(northPanel, BorderLayout.NORTH)
+        add(centerPanel, BorderLayout.CENTER)
 
         val rolesBox = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             border = EmptyBorder(8, 8, 8, 8)
             // начальные строки
             add(roleRow("Team-leads", tlSpin, "teamLead")); add(Box.createVerticalStrut(8))
-            add(roleRow("Tech-leads", techSpin, "techLead")); add(Box.createVerticalStrut(8))
-            add(roleRow("Engineers", engSpin, "engineer")); add(Box.createVerticalStrut(8))
+            add(roleRow("Software Engineers", engSpin, "engineer")); add(Box.createVerticalStrut(8))
             add(roleRow("QA Engineers", qaSpin, "qaEngineer")); add(Box.createVerticalStrut(8))
         }
         add(rolesBox, BorderLayout.CENTER)
 
         // кнопка "+"
-        val plusButton = JButton("+").apply {
+        plusButton = JButton("+").apply {
             toolTipText = "Добавить новую роль"
             addActionListener {
                 // --- строим форму ---
@@ -140,7 +156,7 @@ class TeamBuilderPanel(private val project: Project) {
         }
 
         // теперь формируем юг: сначала "+", потом Create Team
-        val createBtn = JButton("Create Team").apply {
+        createBtn = JButton("Create Team").apply {
             font = font.deriveFont(Font.BOLD, 16f)
             preferredSize = Dimension(-1, 100)
             addActionListener {
@@ -179,7 +195,7 @@ class TeamBuilderPanel(private val project: Project) {
         val config = TeamConfig(
             task = taskArea.text.trim(),
             teamLeads = tlSpin.value as Int,
-            techLeads = techSpin.value as Int,
+            techLeads = 0, // Tech leads option removed
             engineers = engSpin.value as Int,
             qaEngineers = qaSpin.value as Int,
             globalPrompt = "",
@@ -195,11 +211,28 @@ class TeamBuilderPanel(private val project: Project) {
             Messages.showErrorDialog(project, "Failed to generate JSON crew file: ${e.message}", "Agent Team Builder")
         }
 
+        chatButton.isVisible = true
+        rolesPanel.revalidate()
+        rolesPanel.repaint()
         showChatScreen()
     }
 
     // ─── Chat screen ─────────────────────────────
     private fun createChatPanel(): JPanel = JPanel(BorderLayout()).apply {
+        // ▲ Вверху – «View Team»
+        val viewButton = JButton("View Team").apply {
+            toolTipText = "Просмотреть состав команды"
+            addActionListener { showReadOnlyRoles() }
+        }
+        add(
+            JPanel(FlowLayout(FlowLayout.RIGHT, 0, 0)).apply {
+                border = EmptyBorder(4, 8, 4, 8)
+                add(viewButton)
+            },
+            BorderLayout.NORTH
+        )
+
+        // ── Разделитель
         add(JSeparator(SwingConstants.HORIZONTAL), BorderLayout.NORTH)
         chatContainer = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
@@ -244,6 +277,18 @@ class TeamBuilderPanel(private val project: Project) {
         inputField.text = ""
         (cardPanel.layout as CardLayout).show(cardPanel, "CHAT")
         cardPanel.revalidate(); cardPanel.repaint()
+    }
+
+    private fun showReadOnlyRoles() {
+        (cardPanel.layout as CardLayout).show(cardPanel, "ROLES")
+        tlSpin.isEnabled = false
+        engSpin.isEnabled = false
+        qaSpin.isEnabled = false
+        plusButton.isEnabled = false
+        createBtn.isEnabled = false
+        chatButton.isVisible = true
+        cardPanel.revalidate()
+        cardPanel.repaint()
     }
 
     private fun getScrollPaneFor(component: Component): JScrollPane {
@@ -489,7 +534,7 @@ class TeamBuilderPanel(private val project: Project) {
         }
 
         // Check if the message starts with a role name (e.g., "Software Engineer")
-        val rolePattern = "^(Software Engineer|Team Lead|Tech Lead|QA Engineer)\\b".toRegex()
+        val rolePattern = "^(Software Engineer|Team Lead|QA Engineer)\\b".toRegex()
         val matchResult = rolePattern.find(text.trim())
         return matchResult?.groupValues?.get(1)?.trim()
     }
@@ -511,7 +556,7 @@ class TeamBuilderPanel(private val project: Project) {
                 }
             } else {
                 // If the message starts with a role name, remove it
-                val rolePattern = "^(Software Engineer|Team Lead|Tech Lead|QA Engineer)\\b".toRegex()
+                val rolePattern = "^(Software Engineer|Team Lead|QA Engineer)\\b".toRegex()
                 val matchResult = rolePattern.find(cleanedMessage.trim())
                 if (matchResult != null) {
                     val fullMatch = matchResult.value
