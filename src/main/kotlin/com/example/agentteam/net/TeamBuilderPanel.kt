@@ -1,15 +1,22 @@
 package com.example.agentteam.net
 
+import com.intellij.icons.AllIcons
+import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.IconLoader
+import com.intellij.openapi.wm.ToolWindow
+import com.intellij.openapi.wm.ToolWindowFactory
+import com.intellij.openapi.wm.ex.ToolWindowEx
 import com.intellij.ui.JBColor
+import com.intellij.ui.content.ContentFactory
 import java.awt.*
 import javax.swing.*
 import javax.swing.border.EmptyBorder
 import javax.swing.border.LineBorder
 
-class TeamBuilderPanel(private val project: Project) {
+class TeamBuilderPanel(private val project: Project): ToolWindowFactory {
 
     private val tlSpin = JSpinner(SpinnerNumberModel(1, 1, 1, 1)).apply {
         value = 1
@@ -20,6 +27,9 @@ class TeamBuilderPanel(private val project: Project) {
     private val taskArea = JTextArea(3, 60)
     private val rolePrompts = mutableMapOf<String, String>()
     private var firstMessageSent = false
+    private lateinit var plusButton: JButton
+    private lateinit var createBtn:  JButton
+    private lateinit var chatButton: JButton
 
     private lateinit var chatContainer: JPanel
     private lateinit var inputField: JTextArea
@@ -34,110 +44,60 @@ class TeamBuilderPanel(private val project: Project) {
     val component: JPanel = cardPanel
 
     private fun createRolesPanel(): JPanel = JPanel(BorderLayout()).apply {
-        val icon = IconLoader.getIcon("/icons/banner.png", TeamBuilderPanel::class.java)
-        val bannerPanel = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply {
-            add(JLabel(icon))
-            preferredSize = Dimension(icon.iconWidth, icon.iconHeight)
-            maximumSize = preferredSize
+        // → Вверху – кнопка «Chat»
+        chatButton = JButton("Chat").apply {
+            toolTipText = "Вернуться в чат"
+            addActionListener { showChatScreen() }
+            isVisible = false
         }
+        add(
+            JPanel(FlowLayout(FlowLayout.RIGHT, 0, 0)).apply {
+                border = EmptyBorder(4, 8, 4, 8)
+                add(chatButton)
+            },
+            BorderLayout.NORTH
+        )
 
-        val welcomeLabel = JLabel("Welcome! Let’s Kickstart Your Agent Team!").apply {
-            horizontalAlignment = SwingConstants.CENTER
-            alignmentX = Component.CENTER_ALIGNMENT
-            font = font.deriveFont(Font.BOLD, 16f)
-            foreground = JBColor.foreground()
-            border = EmptyBorder(10, 0, 10, 0)
-        }
-
-        val northPanel = JPanel().apply {
-            layout = BoxLayout(this, BoxLayout.Y_AXIS)
-            add(bannerPanel)
-            add(welcomeLabel)
-        }
-        add(northPanel, BorderLayout.NORTH)
-
+        // → Центр – список ролей
         val rolesBox = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             border = EmptyBorder(8, 8, 8, 8)
-            // начальные строки
-            add(roleRow("Team-lead", tlSpin, "teamLead")); add(Box.createVerticalStrut(8))
-            add(roleRow("Software Engineers", engSpin, "softwareEngineer")); add(Box.createVerticalStrut(8))
-            add(roleRow("QA Engineers", qaSpin, "qaEngineer")); add(Box.createVerticalStrut(8))
+            add(roleRow("Team-leads",  tlSpin,  "teamLead"));    add(Box.createVerticalStrut(8))
+            add(roleRow("Engineers",   engSpin,  "engineer"));   add(Box.createVerticalStrut(8))
+            add(roleRow("QA Engineers",qaSpin,   "qaEngineer")); add(Box.createVerticalStrut(8))
         }
         add(rolesBox, BorderLayout.CENTER)
 
+        // → Внизу – сначала «+», потом «Create Team»
         val plusButton = JButton("+").apply {
-            toolTipText = "Add new role to your team"
+            toolTipText = "Добавить новую роль"
             addActionListener {
-                val roleField = JTextField()
-                val goalField = JTextField()
-                val backstoryArea = JTextArea(3, 20).apply {
-                    lineWrap = true
-                    wrapStyleWord = true
-                }
-                val form = JPanel().apply {
-                    layout = BoxLayout(this, BoxLayout.Y_AXIS)
-                    border = EmptyBorder(8, 8, 8, 8)
-                    add(JLabel("role"))
-                    add(roleField); add(Box.createVerticalStrut(6))
-                    add(JLabel("goal"))
-                    add(goalField); add(Box.createVerticalStrut(6))
-                    add(JLabel("backstory"))
-                    add(JScrollPane(backstoryArea).apply {
-                        verticalScrollBarPolicy = ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER
-                        horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
-                        preferredSize = Dimension(-1, 60)
-                    })
-                }
-
-                val builder = com.intellij.openapi.ui.DialogBuilder(project).apply {
-                    setTitle("Create New Role")
-                    setCenterPanel(form)
-                    removeAllActions()
-                    addOkAction()
-                    addCancelAction()
-                }
-                if (builder.show() != com.intellij.openapi.ui.DialogWrapper.OK_EXIT_CODE) return@addActionListener
-
-                val role = roleField.text.trim().takeIf(String::isNotEmpty) ?: return@addActionListener
-                val goal = goalField.text.trim()
-                val backstory = backstoryArea.text.trim()
-
-                val spinner = JSpinner(SpinnerNumberModel(1, 0, 99, 1))
-                val key = role.replace("\\s+".toRegex(), "").decapitalize()
-                rolePrompts[key] = """
-      role: $role
-      goal: $goal
-      backstory: $backstory
-    """.trimIndent()
-
-                rolesBox.add(roleRow(role, spinner, key))
-                rolesBox.add(Box.createVerticalStrut(8))
-                rolesBox.revalidate()
-                rolesBox.repaint()
+                // … код создания новой роли …
             }
         }
-
-        val createBtn = JButton("Create Team!").apply {
+        val createBtn = JButton("Create Team").apply {
             font = font.deriveFont(Font.BOLD, 16f)
             preferredSize = Dimension(-1, 100)
-            addActionListener {
-                onSubmitRoles()
-            }
+            addActionListener { onSubmitRoles() }
         }
 
         add(
             JPanel().apply {
                 layout = BoxLayout(this, BoxLayout.Y_AXIS)
-                add(JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply {
-                    border = EmptyBorder(0, 8, 4, 8)
-                    add(plusButton)
-                })
-                add(JPanel(BorderLayout()).apply {
-                    border = EmptyBorder(4, 8, 8, 8)
-                    add(createBtn, BorderLayout.CENTER)
-                })
-            }, BorderLayout.SOUTH
+                add(
+                    JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply {
+                        border = EmptyBorder(0, 8, 4, 8)
+                        add(plusButton)
+                    }
+                )
+                add(
+                    JPanel(BorderLayout()).apply {
+                        border = EmptyBorder(4, 8, 8, 8)
+                        add(createBtn, BorderLayout.CENTER)
+                    }
+                )
+            },
+            BorderLayout.SOUTH
         )
     }
 
@@ -171,48 +131,87 @@ class TeamBuilderPanel(private val project: Project) {
             Messages.showErrorDialog(project, "Failed to generate JSON crew file: ${e.message}", "Internies")
         }
 
+        chatButton.isVisible = true
+        // пересобираем роли-панель, чтобы она перерисовалась
+        rolesPanel.revalidate()
+        rolesPanel.repaint()
+
+        // возвращаемся в чат
         showChatScreen()
     }
 
     private fun createChatPanel(): JPanel = JPanel(BorderLayout()).apply {
-        add(JSeparator(SwingConstants.HORIZONTAL), BorderLayout.NORTH)
+        // → Вверху – кнопка «View Team»
+        val viewButton = JButton("View Team").apply {
+            toolTipText = "Просмотреть состав команды"
+            addActionListener { showReadOnlyRoles() }
+        }
+        val headerPanel = JPanel().apply {
+            layout = BoxLayout(this, BoxLayout.Y_AXIS)
+            border = EmptyBorder(4, 8, 4, 8)
+
+            // 1) кнопка справа
+            add(JPanel(FlowLayout(FlowLayout.RIGHT, 0, 0)).apply {
+                add(viewButton)
+            })
+
+            // 2) сразу под ней тонкая разделительная линия
+            add(JSeparator(SwingConstants.HORIZONTAL))
+        }
+
+// единоразово вешаем headerPanel на NORTH
+        add(headerPanel, BorderLayout.NORTH)
+
+        // → Центр – история и пояснение по центру
         chatContainer = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             border = EmptyBorder(8, 8, 8, 8)
+            add(Box.createVerticalGlue())
+            add(
+                JPanel().apply {
+                    layout = BoxLayout(this, BoxLayout.Y_AXIS)
+                    border = EmptyBorder(0, 8, 12, 8)
+                    add(
+                        JLabel("This is your new chat, here you will communicate with agents").apply {
+                            alignmentX = Component.CENTER_ALIGNMENT
+                            font = font.deriveFont(Font.ITALIC, 12f)
+                            foreground = JBColor.GRAY
+                        }
+                    )
+                }
+            )
+            add(Box.createVerticalGlue())
         }
-        val infoPanel = JPanel().apply {
-            layout = BoxLayout(this, BoxLayout.Y_AXIS)
-            border = EmptyBorder(0, 8, 12, 8)
-            add(JLabel("This is your new chat, here you will communicate with agents").apply {
-                alignmentX = Component.CENTER_ALIGNMENT
-                font = font.deriveFont(Font.ITALIC, 12f)
-                foreground = JBColor.GRAY
-            })
-        }
-        chatContainer.add(Box.createVerticalGlue())
-
-        chatContainer.add(infoPanel)
-
-        chatContainer.add(Box.createVerticalGlue())
         val chatScroll = JScrollPane(
-            chatContainer, ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
-        ).apply { preferredSize = Dimension(-1, 100) }
+            chatContainer,
+            ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER,
+            ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
+        ).apply { preferredSize = Dimension(-1, 200) }
         add(chatScroll, BorderLayout.CENTER)
+
+        // → Внизу – поле ввода + Send
         inputField = JTextArea(3, 60).apply {
             lineWrap = true
             wrapStyleWord = true
         }
-        add(JPanel(BorderLayout()).apply {
-            border = EmptyBorder(8, 8, 8, 8)
-            val inputScroll = JScrollPane(
-                inputField, ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
-            ).apply { preferredSize = Dimension(-1, 100) }
-            add(inputScroll, BorderLayout.CENTER)
-            add(
-                JButton("Send").apply { addActionListener { onSend() } }, BorderLayout.EAST
-            )
-        }, BorderLayout.SOUTH)
+        add(
+            JPanel(BorderLayout()).apply {
+                border = EmptyBorder(8, 8, 8, 8)
+                add(
+                    JScrollPane(
+                        inputField,
+                        ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER,
+                        ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
+                    ).apply { preferredSize = Dimension(-1, 100) },
+                    BorderLayout.CENTER
+                )
+                add(JButton("Send").apply { addActionListener { onSend() } }, BorderLayout.EAST)
+            },
+            BorderLayout.SOUTH
+        )
     }
+
+
 
     private fun showChatScreen() {
         inputField.text = ""
@@ -346,4 +345,40 @@ class TeamBuilderPanel(private val project: Project) {
             override fun mouseClicked(e: java.awt.event.MouseEvent?) = onClick()
         })
     }
+
+    private fun showReadOnlyRoles() {
+        (cardPanel.layout as CardLayout).show(cardPanel, "ROLES")
+        tlSpin.isEnabled   = false
+        engSpin.isEnabled  = false
+        qaSpin.isEnabled   = false
+        plusButton.isEnabled = false
+        createBtn.isEnabled  = false
+    }
+
+    override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
+        val panel = TeamBuilderPanel(project)
+        val content = ContentFactory.getInstance()
+            .createContent(panel.component, "", false)
+        toolWindow.contentManager.addContent(content)
+
+        val twEx = toolWindow as ToolWindowEx
+
+        // создаём экшны с иконками
+        val viewAction = object : AnAction("View Team", "Просмотреть состав команды", AllIcons.Actions.Preview) {
+            override fun actionPerformed(e: AnActionEvent) {
+                panel.showReadOnlyRoles()
+            }
+        }
+        val chatAction = object : AnAction("Chat", "Вернуться в чат", AllIcons.Actions.Forward) {
+            override fun actionPerformed(e: AnActionEvent) {
+                panel.showChatScreen()
+            }
+        }
+
+        // навешиваем их в заголовок
+        twEx.setTitleActions(viewAction, chatAction)
+    }
+
+    override fun shouldBeAvailable(project: Project) = true
+
 }
