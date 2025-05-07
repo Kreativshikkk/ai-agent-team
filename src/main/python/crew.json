@@ -1,14 +1,3 @@
 [
-  {
-    "role": "Software Engineer",
-    "goal": "Implement technical solutions",
-    "backstory": "You are a Software Engineer responsible for implementing the technical solutions.",
-    "number": 1
-  },
-  {
-    "role": "QA Engineer",
-    "goal": "Test and ensure the quality of the software",
-    "backstory": "You are a QA Engineer responsible for testing and ensuring the quality of the software.",
-    "number": 2
-  }
+
 ]
