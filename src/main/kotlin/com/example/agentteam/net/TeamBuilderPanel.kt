@@ -38,14 +38,29 @@ class TeamBuilderPanel(private val project: Project) {
     // ─── Roles screen ─────────────────────────────
     private fun createRolesPanel(): JPanel = JPanel(BorderLayout()).apply {
         // Banner or spacer
-        add(
-            try {
-                JLabel(IconLoader.getIcon("/icons/banner.png", javaClass))
-            } catch (_: Exception) {
-                JLabel().apply { preferredSize = Dimension(1, 80) }
-            },
-            BorderLayout.NORTH
-        )
+        val icon = IconLoader.getIcon("/icons/banner.png", TeamBuilderPanel::class.java)
+        val bannerPanel = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply {
+            add(JLabel(icon))
+            // Устанавливаем строго под размер картинки
+            preferredSize = Dimension(icon.iconWidth, icon.iconHeight)
+            maximumSize   = preferredSize
+        }
+
+        val welcomeLabel = JLabel("Welcome! Let’s Kickstart Your Agent Team!").apply {
+            horizontalAlignment = SwingConstants.CENTER       // текст по центру
+            alignmentX = Component.CENTER_ALIGNMENT           // тоже центр в BoxLayout
+            font = font.deriveFont(Font.BOLD, 16f)             // чуть побольше и жирнее
+            foreground = JBColor.foreground()                  // цвет в соответствии с темой
+            border = EmptyBorder(50, 0, 8, 0)                  // 8px сверху и снизу от картинки
+        }
+
+// если вы оборачиваете баннер в northPanel:
+        val northPanel = JPanel().apply {
+            layout = BoxLayout(this, BoxLayout.Y_AXIS)
+            add(bannerPanel)
+            add(welcomeLabel)                                 // теперь сразу под картинкой
+        }
+        add(northPanel, BorderLayout.NORTH)
 
         // roles center
         add(JPanel().apply {
