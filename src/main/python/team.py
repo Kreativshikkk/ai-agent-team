@@ -32,7 +32,7 @@ with open(crew_json_path, 'r') as f:
     crew_data = json.load(f)
 
 # Create agents from crew.json
-project_path = os.path.join(crew_data[0]["projectPath"], '.temp')
+project_path = crew_data[0]["projectPath"]
 agents = []
 manager_agent = None
 
