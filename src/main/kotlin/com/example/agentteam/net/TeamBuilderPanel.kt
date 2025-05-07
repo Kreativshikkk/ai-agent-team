@@ -161,12 +161,12 @@ class TeamBuilderPanel(private val project: Project) {
         )
         TeamStore.get().add(config)
 
-        // Generate Python crew file
+        // Generate JSON crew file
         try {
-            val pythonGenerator = PythonCrewGenerator(project)
-            pythonGenerator.generatePythonFile(config)
+            val crewGenerator = PythonCrewGenerator(project)
+            crewGenerator.generateJsonFile(config)
         } catch (e: Exception) {
-            Messages.showErrorDialog(project, "Failed to generate Python crew file: ${e.message}", "Agent Team Builder")
+            Messages.showErrorDialog(project, "Failed to generate JSON crew file: ${e.message}", "Agent Team Builder")
         }
 
         showChatScreen()
@@ -221,7 +221,20 @@ class TeamBuilderPanel(private val project: Project) {
         val txt = inputField.text.trim().takeIf(String::isNotEmpty) ?: return
         inputField.text = ""
         addBubble(isUser = true,  text = txt)
-        addBubble(isUser = false, text = "Echo: $txt")
+
+        // Note: We now generate a JSON file instead of a Python script
+        // This execution logic might need to be updated in the future
+        try {
+            val process = ProcessBuilder("python3", "/Users/iya/jb/hackathon-25/ai-agent-team/src/main/python/crew_ai_team.py")
+                .redirectErrorStream(true)
+                .start()
+
+            val output = process.inputStream.bufferedReader().use { it.readText() }
+            addBubble(isUser = false, text = output.ifEmpty { "Script executed with no output" })
+        } catch (e: Exception) {
+            addBubble(isUser = false, text = "Error running script: ${e.message}\nNote: A JSON file has been generated at /Users/iya/jb/hackathon-25/ai-agent-team/src/main/python/crew.json")
+        }
+
         chatContainer.revalidate(); chatContainer.repaint()
         SwingUtilities.invokeLater {
             (chatContainer.parent as JScrollPane).verticalScrollBar.value =
