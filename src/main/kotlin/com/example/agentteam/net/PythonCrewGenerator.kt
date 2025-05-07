@@ -88,6 +88,39 @@ class PythonCrewGenerator(private val project: Project) {
             agentCount++
         }
 
+        // Custom roles
+        val defaultRoleKeys = setOf("teamLead", "techLead", "engineer", "qaEngineer")
+        for ((key, prompt) in config.rolePrompts) {
+            // Skip default roles as they are already processed
+            if (key in defaultRoleKeys) continue
+
+            // Parse the prompt to extract role, goal, and backstory
+            val lines = prompt.trim().lines()
+            var role = ""
+            var goal = ""
+            var backstory = ""
+
+            for (line in lines) {
+                when {
+                    line.startsWith("role:") -> role = line.substringAfter("role:").trim()
+                    line.startsWith("goal:") -> goal = line.substringAfter("goal:").trim()
+                    line.startsWith("backstory:") -> backstory = line.substringAfter("backstory:").trim()
+                }
+            }
+
+            // Only add if we have a valid role
+            if (role.isNotEmpty()) {
+                if (agentCount > 0) sb.append(",\n")
+                sb.append("""  {
+    "role": "$role",
+    "goal": "$goal",
+    "backstory": "${backstory.replace("\"", "\\\"")}",
+    "number": ${agentCount + 1}
+  }""")
+                agentCount++
+            }
+        }
+
         sb.append("\n]")
 
         return sb.toString()
