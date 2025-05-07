@@ -34,6 +34,14 @@ class PythonCrewGenerator(private val project: Project) {
 
         sb.append("[\n")
 
+        sb.append(
+            """  {
+                "projectPath": "${project.basePath}"
+            },"""
+        )
+
+        sb.append("\n")
+
         var agentCount = 0
 
         // Team Leads
