@@ -1,6 +1,6 @@
 <idea-plugin>
     <id>com.example.agentteam</id>
-    <name>Agent Team Builder</name>
+    <name>Internies</name>
     <vendor email="you@example.com">Your Name</vendor>
 
     <description><![CDATA[
@@ -11,7 +11,7 @@
     <depends>com.intellij.modules.platform</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow id="Agent Team Builder"
+        <toolWindow id="Internies"
                     anchor="left"
                     factoryClass="com.example.agentteam.net.TeamBuilderToolWindowFactory"/>
     </extensions>

@@ -5,6 +5,7 @@ import os
 import json
 import prompts
 import configparser
+import sys
 
 
 load_dotenv()
@@ -70,8 +71,11 @@ for agent_data in crew_data:
     else:
         agents.append(agent)
 
+# Get task description from command line argument if provided, otherwise use default
+task_description = sys.argv[1] if len(sys.argv) > 1 else "Create console TicTacToe game"
+
 task = Task(
-    description="Create console TicTacToe game",
+    description=task_description,
     expected_output="Working implementation and passing tests"
 )
 
