@@ -449,15 +449,29 @@ class TeamBuilderPanel(private val project: Project) {
     }
 
     // Helper function to filter out content before "## Tool Output" if "## Tool Input" is present
+    // and to filter out content starting from "You ONLY have access to the following tools" if present
     private fun filterToolOutput(text: String): String {
-        if (text.contains("## Tool Input")) {
-            val toolOutputIndex = text.indexOf("## Tool Output")
+        var filteredText = text
+
+        // Filter out content before "## Tool Output" if "## Tool Input" is present
+        if (filteredText.contains("## Tool Input")) {
+            val toolOutputIndex = filteredText.indexOf("## Tool Output")
             if (toolOutputIndex != -1) {
-                return text.substring(toolOutputIndex)
+                filteredText = filteredText.substring(toolOutputIndex)
             }
         }
-        return text
+
+        // Filter out content starting from "You ONLY have access to the following tools" if present
+        val toolsIndex = filteredText.indexOf("You ONLY have access to the following tools")
+        if (toolsIndex != -1) {
+            filteredText = filteredText.substring(0, toolsIndex).trim()
+        }
+
+        return filteredText
     }
+
+    // Data class to hold both the role and the cleaned message
+    private data class RoleAndMessage(val role: String?, val cleanedMessage: String)
 
     // Helper function to extract role from messages that start with a role name
     private fun extractRoleFromMessage(text: String): String? {
@@ -480,19 +494,57 @@ class TeamBuilderPanel(private val project: Project) {
         return matchResult?.groupValues?.get(1)?.trim()
     }
 
+    // Helper function to extract role and clean message content
+    private fun extractRoleAndCleanMessage(text: String): RoleAndMessage {
+        val role = extractRoleFromMessage(text)
+        var cleanedMessage = text
+
+        // Clean the message by removing the role prefix
+        if (role != null) {
+            // If the message contains "# Agent:", remove that part
+            if (cleanedMessage.contains("# Agent:")) {
+                val agentPattern = "# Agent:\\s*([^\\n]+)".toRegex()
+                val matchResult = agentPattern.find(cleanedMessage)
+                if (matchResult != null) {
+                    val fullMatch = matchResult.value
+                    cleanedMessage = cleanedMessage.replaceFirst(fullMatch, "").trim()
+                }
+            } else {
+                // If the message starts with a role name, remove it
+                val rolePattern = "^(Software Engineer|Team Lead|Tech Lead|QA Engineer)\\b".toRegex()
+                val matchResult = rolePattern.find(cleanedMessage.trim())
+                if (matchResult != null) {
+                    val fullMatch = matchResult.value
+                    cleanedMessage = cleanedMessage.replaceFirst(fullMatch, "").trim()
+                }
+            }
+        }
+
+        return RoleAndMessage(role, cleanedMessage)
+    }
+
     private fun addBubble(isUser: Boolean, text: String) {
         // Filter the text if it's not from the user
         val filteredText = if (!isUser) filterToolOutput(text) else text
 
+        // Variables to hold the header text and the cleaned message
+        var headerText = ""
+        var cleanedMessage = filteredText
+
         if (!isUser) {
-            // Determine the header text
-            val headerText = when {
-                // For the confirmation message, use "Agent Team Builder"
-                text == "Got your request and sending it to the team..." -> "Agent Team Builder"
-                // For messages starting with "## Tool Output:", use the previous header
-                filteredText.trim().startsWith("## Tool Output:") -> lastMessageHeader
-                // For other messages, try to extract the role
-                else -> extractRoleFromMessage(filteredText) ?: "Agent Team Builder"
+            // For the confirmation message, use "Agent Team Builder" and don't clean the message
+            if (text == "Got your request and sending it to the team...") {
+                headerText = "Agent Team Builder"
+            }
+            // For messages starting with "## Tool Output:", use the previous header and don't clean the message
+            else if (filteredText.trim().startsWith("## Tool Output:")) {
+                headerText = lastMessageHeader
+            }
+            // For other messages, extract the role and clean the message
+            else {
+                val roleAndMessage = extractRoleAndCleanMessage(filteredText)
+                headerText = roleAndMessage.role ?: "Agent Team Builder"
+                cleanedMessage = roleAndMessage.cleanedMessage
             }
 
             // Update the last message header
@@ -507,7 +559,7 @@ class TeamBuilderPanel(private val project: Project) {
             }
             chatContainer.add(header)
         }
-        val bubbleText = JTextArea(filteredText).apply {
+        val bubbleText = JTextArea(cleanedMessage).apply {
             isEditable = false
             isOpaque = false
             lineWrap = true
