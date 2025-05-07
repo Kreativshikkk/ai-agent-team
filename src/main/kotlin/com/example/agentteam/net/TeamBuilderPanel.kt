@@ -14,7 +14,7 @@ private data class Msg(val isUser: Boolean, val text: String)
 
 class TeamBuilderPanel(private val project: Project) {
     // Track the last message header
-    private var lastMessageHeader = "Agent Team Builder"
+    private var lastMessageHeader = "Internies"
 
     // Helper function to strip ANSI color codes
     private fun stripAnsiCodes(text: String): String {
@@ -24,8 +24,8 @@ class TeamBuilderPanel(private val project: Project) {
 
     // ─── widgets & state ─────────────────────────
     private val tlSpin = JSpinner(SpinnerNumberModel(1, 1, 1, 1)).apply { isEnabled = false }
-    private val engSpin = JSpinner(SpinnerNumberModel(0, 0, 99, 1))
-    private val qaSpin = JSpinner(SpinnerNumberModel(0, 0, 99, 1))
+    private val engSpin = JSpinner(SpinnerNumberModel(1, 0, 99, 1))
+    private val qaSpin = JSpinner(SpinnerNumberModel(1, 0, 99, 1))
     private val taskArea = JTextArea(3, 60)
     private val rolePrompts = mutableMapOf<String, String>()
     private var firstMessageSent = false
@@ -51,9 +51,9 @@ class TeamBuilderPanel(private val project: Project) {
 
     // ─── Roles screen ─────────────────────────────
     private fun createRolesPanel(): JPanel = JPanel(BorderLayout()).apply {
-        // ▲ Вверху – кнопка «Chat» (скрыта по умолчанию)
+        // ▲ At the top - "Chat" button (hidden by default)
         chatButton = JButton("Chat").apply {
-            toolTipText = "Вернуться в чат"
+            toolTipText = "Return to chat"
             addActionListener { showChatScreen() }
             isVisible = false
         }
@@ -69,7 +69,7 @@ class TeamBuilderPanel(private val project: Project) {
         val icon = IconLoader.getIcon("/icons/banner.png", TeamBuilderPanel::class.java)
         val bannerPanel = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply {
             add(JLabel(icon))
-            // Устанавливаем строго под размер картинки
+            // Set strictly to the size of the image
             preferredSize = Dimension(icon.iconWidth, icon.iconHeight)
             maximumSize = preferredSize
         }
@@ -99,11 +99,11 @@ class TeamBuilderPanel(private val project: Project) {
         }
         add(rolesBox, BorderLayout.CENTER)
 
-        // кнопка "+"
+        // "+" button
         plusButton = JButton("+").apply {
-            toolTipText = "Добавить новую роль"
+            toolTipText = "Add new role"
             addActionListener {
-                // --- строим форму ---
+                // --- building the form ---
                 val roleField     = JTextField()
                 val goalField     = JTextField()
                 val backstoryArea = JTextArea(3, 20).apply {
@@ -140,7 +140,7 @@ class TeamBuilderPanel(private val project: Project) {
                 val goal      = goalField.text.trim()
                 val backstory = backstoryArea.text.trim()
 
-                val spinner = JSpinner(SpinnerNumberModel(0, 0, 99, 1))
+                val spinner = JSpinner(SpinnerNumberModel(1, 0, 99, 1))
                 val key     = role.replace("\\s+".toRegex(), "").replaceFirstChar { it.lowercase() }
                 rolePrompts[key] = """
       role: $role
@@ -155,12 +155,12 @@ class TeamBuilderPanel(private val project: Project) {
             }
         }
 
-        // теперь формируем юг: сначала "+", потом Create Team
+        // now forming the south part: first "+", then Create Team
         createBtn = JButton("Create Team").apply {
             font = font.deriveFont(Font.BOLD, 16f)
             preferredSize = Dimension(-1, 100)
             addActionListener {
-                onSubmitRoles()      // ← здесь и вызывается ваш метод
+                onSubmitRoles()      // ← your method is called here
             }
         }
 
@@ -208,7 +208,7 @@ class TeamBuilderPanel(private val project: Project) {
             val crewGenerator = PythonCrewGenerator(project)
             crewGenerator.generateJsonFile(config)
         } catch (e: Exception) {
-            Messages.showErrorDialog(project, "Failed to generate JSON crew file: ${e.message}", "Agent Team Builder")
+            Messages.showErrorDialog(project, "Failed to generate JSON crew file: ${e.message}", "Internies")
         }
 
         chatButton.isVisible = true
@@ -219,12 +219,15 @@ class TeamBuilderPanel(private val project: Project) {
 
     // ─── Chat screen ─────────────────────────────
     private fun createChatPanel(): JPanel = JPanel(BorderLayout()).apply {
-        // ▲ Вверху – «View Team»
+        // ▲ At the top - "View Team"
         val viewButton = JButton("View Team").apply {
-            toolTipText = "Просмотреть состав команды"
+            toolTipText = "View team composition"
             addActionListener { showReadOnlyRoles() }
         }
-        add(
+
+        // Create a panel for the top section with the button and separator
+        val topPanel = JPanel(BorderLayout())
+        topPanel.add(
             JPanel(FlowLayout(FlowLayout.RIGHT, 0, 0)).apply {
                 border = EmptyBorder(4, 8, 4, 8)
                 add(viewButton)
@@ -232,8 +235,11 @@ class TeamBuilderPanel(private val project: Project) {
             BorderLayout.NORTH
         )
 
-        // ── Разделитель
-        add(JSeparator(SwingConstants.HORIZONTAL), BorderLayout.NORTH)
+        // ── Separator
+        topPanel.add(JSeparator(SwingConstants.HORIZONTAL), BorderLayout.SOUTH)
+
+        // Add the top panel to the main panel
+        add(topPanel, BorderLayout.NORTH)
         chatContainer = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             border = EmptyBorder(8, 8, 8, 8)
@@ -241,7 +247,7 @@ class TeamBuilderPanel(private val project: Project) {
         val infoPanel = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             border = EmptyBorder(0, 8, 12, 8)
-            add(JLabel("Это — ваш новый чат, здесь вы будете общаться с агентами").apply {
+            add(JLabel("This is your new chat, here you will communicate with agents").apply {
                 alignmentX = Component.CENTER_ALIGNMENT
                 font = font.deriveFont(Font.ITALIC, 12f)
                 foreground = JBColor.GRAY
@@ -280,6 +286,23 @@ class TeamBuilderPanel(private val project: Project) {
     }
 
     private fun showReadOnlyRoles() {
+        // Get the latest team configuration
+        val configs = TeamStore.get().all()
+        if (configs.isNotEmpty()) {
+            val latestConfig = configs.last()
+
+            // Update the UI fields with the values from the config
+            tlSpin.value = latestConfig.teamLeads
+            engSpin.value = latestConfig.engineers
+            qaSpin.value = latestConfig.qaEngineers
+            taskArea.text = latestConfig.task
+
+            // Update role prompts
+            rolePrompts.clear()
+            rolePrompts.putAll(latestConfig.rolePrompts)
+        }
+
+        // Switch to the ROLES panel and disable all inputs
         (cardPanel.layout as CardLayout).show(cardPanel, "ROLES")
         tlSpin.isEnabled = false
         engSpin.isEnabled = false
@@ -287,6 +310,8 @@ class TeamBuilderPanel(private val project: Project) {
         plusButton.isEnabled = false
         createBtn.isEnabled = false
         chatButton.isVisible = true
+
+        // Update the UI
         cardPanel.revalidate()
         cardPanel.repaint()
     }
@@ -334,7 +359,8 @@ class TeamBuilderPanel(private val project: Project) {
         // This execution logic might need to be updated in the future
         try {
             val pythonScriptPath = "${ConfigUtil.getPythonScriptsPath()}/team.py"
-            val process = ProcessBuilder("python3.11", pythonScriptPath).redirectErrorStream(true).start()
+            // Pass the user input as a command-line argument to the Python script
+            val process = ProcessBuilder("python3.11", pythonScriptPath, txt).redirectErrorStream(true).start()
 
             // Start a thread to read the process output incrementally
             Thread {
@@ -577,9 +603,9 @@ class TeamBuilderPanel(private val project: Project) {
         var cleanedMessage = filteredText
 
         if (!isUser) {
-            // For the confirmation message, use "Agent Team Builder" and don't clean the message
+            // For the confirmation message, use the agent's name and don't clean the message
             if (text == "Got your request and sending it to the team...") {
-                headerText = "Agent Team Builder"
+                headerText = "Internies"
             }
             // For messages starting with "## Tool Output:", use the previous header and don't clean the message
             else if (filteredText.trim().startsWith("## Tool Output:")) {
@@ -588,7 +614,7 @@ class TeamBuilderPanel(private val project: Project) {
             // For other messages, extract the role and clean the message
             else {
                 val roleAndMessage = extractRoleAndCleanMessage(filteredText)
-                headerText = roleAndMessage.role ?: "Agent Team Builder"
+                headerText = roleAndMessage.role ?: "Internies"
                 cleanedMessage = roleAndMessage.cleanedMessage
             }
 
