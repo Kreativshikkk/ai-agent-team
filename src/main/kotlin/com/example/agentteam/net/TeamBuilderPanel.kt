@@ -13,16 +13,13 @@ import java.util.regex.Pattern
 private data class Msg(val isUser: Boolean, val text: String)
 
 class TeamBuilderPanel(private val project: Project) {
-    // Track the last message header
     private var lastMessageHeader = "Internies"
 
-    // Helper function to strip ANSI color codes
     private fun stripAnsiCodes(text: String): String {
         val ansiPattern = Pattern.compile("\u001B\\[[;\\d]*m")
         return ansiPattern.matcher(text).replaceAll("")
     }
 
-    // ─── widgets & state ─────────────────────────
     private val tlSpin = JSpinner(SpinnerNumberModel(1, 1, 1, 1)).apply { isEnabled = false }
     private val engSpin = JSpinner(SpinnerNumberModel(1, 0, 99, 1))
     private val qaSpin = JSpinner(SpinnerNumberModel(1, 0, 99, 1))
@@ -30,16 +27,15 @@ class TeamBuilderPanel(private val project: Project) {
     private val rolePrompts = mutableMapOf<String, String>()
     private var firstMessageSent = false
 
-    // Buttons
+    private val roleModelSelectors = mutableMapOf<String, JComboBox<String>>()
+
     private lateinit var plusButton: JButton
     private lateinit var createBtn: JButton
     private lateinit var chatButton: JButton
 
-    // chat state
     private lateinit var chatContainer: JPanel
     private lateinit var inputField: JTextArea
 
-    // cards
     private val rolesPanel = createRolesPanel()
     private val chatPanel = createChatPanel()
     private val cardPanel = JPanel(CardLayout()).apply {
@@ -49,9 +45,16 @@ class TeamBuilderPanel(private val project: Project) {
 
     val component: JPanel = cardPanel
 
-    // ─── Roles screen ─────────────────────────────
+    private fun createModelSelector(): JComboBox<String> {
+        val models = arrayOf("Claude 3.5 Sonnet", "Claude 3 Opus", "GPT-4o", "GPT-3.5 Turbo")
+        return JComboBox(models).apply {
+            // Увеличиваем ширину до 180 пикселей, чтобы текст полностью помещался
+            preferredSize = Dimension(180, 25)
+            maximumSize = preferredSize
+        }
+    }
+
     private fun createRolesPanel(): JPanel = JPanel(BorderLayout()).apply {
-        // ▲ At the top - "Chat" button (hidden by default)
         chatButton = JButton("Chat").apply {
             toolTipText = "Return to chat"
             addActionListener { showChatScreen() }
@@ -65,51 +68,48 @@ class TeamBuilderPanel(private val project: Project) {
             BorderLayout.NORTH
         )
 
-        // Banner or spacer
         val icon = IconLoader.getIcon("/icons/banner.png", TeamBuilderPanel::class.java)
         val bannerPanel = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply {
             add(JLabel(icon))
-            // Set strictly to the size of the image
             preferredSize = Dimension(icon.iconWidth, icon.iconHeight)
             maximumSize = preferredSize
         }
 
-        val welcomeLabel = JLabel("Welcome! Let’s Kickstart Your Agent Team!").apply {
-            horizontalAlignment = SwingConstants.CENTER       // текст по центру
-            alignmentX = Component.CENTER_ALIGNMENT           // тоже центр в BoxLayout
-            font = font.deriveFont(Font.BOLD, 16f)             // чуть побольше и жирнее
-            foreground = JBColor.foreground()                  // цвет в соответствии с темой
-            border = EmptyBorder(10, 0, 10, 0)                  // 8px сверху и снизу от картинки
+        val welcomeLabel = JLabel("Welcome! Let's Kickstart Your Agent Team!").apply {
+            horizontalAlignment = SwingConstants.CENTER
+            alignmentX = Component.CENTER_ALIGNMENT
+            font = font.deriveFont(Font.BOLD, 16f)
+            foreground = JBColor.foreground()
+            border = EmptyBorder(10, 0, 10, 0)
         }
 
         val centerPanel = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             add(bannerPanel)
-            add(welcomeLabel)                                 // теперь сразу под картинкой
+            add(welcomeLabel)
         }
         add(centerPanel, BorderLayout.CENTER)
 
         val rolesBox = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             border = EmptyBorder(8, 8, 8, 8)
-            // начальные строки
             add(roleRow("Team-leads", tlSpin, "teamLead")); add(Box.createVerticalStrut(8))
             add(roleRow("Software Engineers", engSpin, "engineer")); add(Box.createVerticalStrut(8))
             add(roleRow("QA Engineers", qaSpin, "qaEngineer")); add(Box.createVerticalStrut(8))
         }
         add(rolesBox, BorderLayout.CENTER)
 
-        // "+" button
         plusButton = JButton("+").apply {
             toolTipText = "Add new role"
             addActionListener {
-                // --- building the form ---
                 val roleField     = JTextField()
                 val goalField     = JTextField()
                 val backstoryArea = JTextArea(3, 20).apply {
                     lineWrap      = true
                     wrapStyleWord = true
                 }
+                val modelSelector = createModelSelector()
+
                 val form = JPanel().apply {
                     layout = BoxLayout(this, BoxLayout.Y_AXIS)
                     border = EmptyBorder(8, 8, 8, 8)
@@ -123,9 +123,11 @@ class TeamBuilderPanel(private val project: Project) {
                         horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
                         preferredSize = Dimension(-1, 60)
                     })
+                    add(Box.createVerticalStrut(6))
+                    add(JLabel("model"))
+                    add(modelSelector)
                 }
 
-                // --- показываем форму через DialogBuilder ---
                 val builder = com.intellij.openapi.ui.DialogBuilder(project).apply {
                     setTitle("Create New Role")
                     setCenterPanel(form)
@@ -133,12 +135,15 @@ class TeamBuilderPanel(private val project: Project) {
                     addOkAction()
                     addCancelAction()
                 }
-                if (builder.show() != com.intellij.openapi.ui.DialogWrapper.OK_EXIT_CODE) return@addActionListener
 
-                // --- читаем значения и добавляем новую роль ---
+                if (builder.show() != com.intellij.openapi.ui.DialogWrapper.OK_EXIT_CODE) {
+                    return@addActionListener
+                }
+
                 val role  = roleField.text.trim().takeIf(String::isNotEmpty) ?: return@addActionListener
                 val goal      = goalField.text.trim()
                 val backstory = backstoryArea.text.trim()
+                val selectedModel = modelSelector.selectedItem as? String ?: "Unknown model"
 
                 val spinner = JSpinner(SpinnerNumberModel(1, 0, 99, 1))
                 val key     = role.replace("\\s+".toRegex(), "").replaceFirstChar { it.lowercase() }
@@ -148,19 +153,29 @@ class TeamBuilderPanel(private val project: Project) {
       backstory: $backstory
     """.trimIndent()
 
-                rolesBox.add(roleRow(role, spinner, key))
-                rolesBox.add(Box.createVerticalStrut(8))
-                rolesBox.revalidate()
-                rolesBox.repaint()
+                try {
+                    val newModelSelector = createModelSelector().apply {
+                        selectedItem = selectedModel
+                    }
+                    roleModelSelectors[key] = newModelSelector
+                } catch (e: Exception) {
+                }
+
+                try {
+                    rolesBox.add(roleRow(role, spinner, key))
+                    rolesBox.add(Box.createVerticalStrut(8))
+                    rolesBox.revalidate()
+                    rolesBox.repaint()
+                } catch (e: Exception) {
+                }
             }
         }
 
-        // now forming the south part: first "+", then Create Team
         createBtn = JButton("Create Team").apply {
             font = font.deriveFont(Font.BOLD, 16f)
             preferredSize = Dimension(-1, 100)
             addActionListener {
-                onSubmitRoles()      // ← your method is called here
+                onSubmitRoles()
             }
         }
 
@@ -181,29 +196,57 @@ class TeamBuilderPanel(private val project: Project) {
 
     private fun roleRow(label: String, spinner: JSpinner, key: String): JPanel = JPanel(BorderLayout()).apply {
         alignmentX = Component.LEFT_ALIGNMENT
-        add(hyperlink(label) {
-            val p = Messages.showInputDialog(
-                project, "Prompt for $label:", "Custom Prompt", null, rolePrompts[key] ?: "", null
-            ) ?: return@hyperlink
-            rolePrompts[key] = p.trim()
-        }, BorderLayout.WEST)
-        add(spinner, BorderLayout.EAST)
+
+        val leftPanel = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply {
+            isOpaque = false
+            add(hyperlink(label) {
+                val p = Messages.showInputDialog(
+                    project, "Prompt for $label:", "Custom Prompt", null, rolePrompts[key] ?: "", null
+                ) ?: return@hyperlink
+                rolePrompts[key] = p.trim()
+            })
+        }
+
+        val rightPanel = JPanel(FlowLayout(FlowLayout.RIGHT, 5, 0)).apply {
+            isOpaque = false
+
+            if (!roleModelSelectors.containsKey(key)) {
+                val modelSelector = createModelSelector()
+                roleModelSelectors[key] = modelSelector
+            }
+
+            // Сначала добавляем спиннер, а затем селектор модели (изменён порядок)
+            add(spinner)
+            val modelSelector = roleModelSelectors[key]
+            add(modelSelector)
+        }
+
+        add(leftPanel, BorderLayout.WEST)
+        add(rightPanel, BorderLayout.EAST)
         maximumSize = preferredSize
+        return@apply
     }
 
     private fun onSubmitRoles() {
+        val selectedModels = mutableMapOf<String, String>()
+
+        roleModelSelectors.forEach { (key, selector) ->
+            val selectedModel = selector.selectedItem as? String ?: "Unknown"
+            selectedModels[key] = selectedModel
+        }
+
         val config = TeamConfig(
             task = taskArea.text.trim(),
             teamLeads = tlSpin.value as Int,
-            techLeads = 0, // Tech leads option removed
+            techLeads = 0,
             engineers = engSpin.value as Int,
             qaEngineers = qaSpin.value as Int,
             globalPrompt = "",
-            rolePrompts = rolePrompts.toMap()
+            rolePrompts = rolePrompts.toMap(),
+            roleModels = selectedModels
         )
         TeamStore.get().add(config)
 
-        // Generate JSON crew file
         try {
             val crewGenerator = PythonCrewGenerator(project)
             crewGenerator.generateJsonFile(config)
@@ -217,15 +260,12 @@ class TeamBuilderPanel(private val project: Project) {
         showChatScreen()
     }
 
-    // ─── Chat screen ─────────────────────────────
     private fun createChatPanel(): JPanel = JPanel(BorderLayout()).apply {
-        // ▲ At the top - "View Team"
         val viewButton = JButton("View Team").apply {
             toolTipText = "View team composition"
             addActionListener { showReadOnlyRoles() }
         }
 
-        // Create a panel for the top section with the button and separator
         val topPanel = JPanel(BorderLayout())
         topPanel.add(
             JPanel(FlowLayout(FlowLayout.RIGHT, 0, 0)).apply {
@@ -235,10 +275,8 @@ class TeamBuilderPanel(private val project: Project) {
             BorderLayout.NORTH
         )
 
-        // ── Separator
         topPanel.add(JSeparator(SwingConstants.HORIZONTAL), BorderLayout.SOUTH)
 
-        // Add the top panel to the main panel
         add(topPanel, BorderLayout.NORTH)
         chatContainer = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
@@ -258,7 +296,6 @@ class TeamBuilderPanel(private val project: Project) {
         chatContainer.add(infoPanel)
 
         chatContainer.add(Box.createVerticalGlue())
-        // 3) уже потом скролл с сообщениями
         val chatScroll = JScrollPane(
             chatContainer, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
         ).apply { preferredSize = Dimension(-1, 100) }
@@ -286,23 +323,29 @@ class TeamBuilderPanel(private val project: Project) {
     }
 
     private fun showReadOnlyRoles() {
-        // Get the latest team configuration
         val configs = TeamStore.get().all()
         if (configs.isNotEmpty()) {
             val latestConfig = configs.last()
 
-            // Update the UI fields with the values from the config
             tlSpin.value = latestConfig.teamLeads
             engSpin.value = latestConfig.engineers
             qaSpin.value = latestConfig.qaEngineers
             taskArea.text = latestConfig.task
 
-            // Update role prompts
             rolePrompts.clear()
             rolePrompts.putAll(latestConfig.rolePrompts)
+
+            latestConfig.roleModels.forEach { (key, model) ->
+                val selector = roleModelSelectors[key]
+                if (selector != null) {
+                    try {
+                        selector.selectedItem = model
+                    } catch (e: Exception) {
+                    }
+                }
+            }
         }
 
-        // Switch to the ROLES panel and disable all inputs
         (cardPanel.layout as CardLayout).show(cardPanel, "ROLES")
         tlSpin.isEnabled = false
         engSpin.isEnabled = false
@@ -311,7 +354,10 @@ class TeamBuilderPanel(private val project: Project) {
         createBtn.isEnabled = false
         chatButton.isVisible = true
 
-        // Update the UI
+        roleModelSelectors.values.forEach {
+            it.isEnabled = false
+        }
+
         cardPanel.revalidate()
         cardPanel.repaint()
     }
@@ -338,31 +384,23 @@ class TeamBuilderPanel(private val project: Project) {
         val txt = inputField.text.trim().takeIf(String::isNotEmpty) ?: return
         inputField.text = ""
 
-        // при первом сообщении удаляем explanatory-блок и glues
         if (!firstMessageSent) {
             chatContainer.removeAll()
             firstMessageSent = true
         }
 
-        // добавляем bubble, как обычно
         addBubble(isUser = true, text = txt)
 
-        // Add confirmation message before executing the Python script
         addBubble(isUser = false, text = "Got your request and sending it to the team...")
         chatContainer.revalidate()
         chatContainer.repaint()
 
-        // Scroll to show the confirmation message
         scrollChatToBottom()
 
-        // Note: We now generate a JSON file instead of a Python script
-        // This execution logic might need to be updated in the future
         try {
             val pythonScriptPath = "${ConfigUtil.getPythonScriptsPath()}/team.py"
-            // Pass the user input as a command-line argument to the Python script
             val process = ProcessBuilder("python3.11", pythonScriptPath, txt).redirectErrorStream(true).start()
 
-            // Start a thread to read the process output incrementally
             Thread {
                 try {
                     val reader = process.inputStream.bufferedReader()
@@ -373,10 +411,8 @@ class TeamBuilderPanel(private val project: Project) {
                     while (reader.readLine().also { line = it } != null) {
                         println(line)
                         if (line!!.contains("# Agent:")) {
-                            // Start collecting a new message
                             collectingMessage = true
 
-                            // If we already have a message buffer, display it first
                             if (currentMessage.isNotEmpty()) {
                                 val messageText = stripAnsiCodes(currentMessage.toString().trim())
                                 SwingUtilities.invokeLater {
@@ -388,25 +424,20 @@ class TeamBuilderPanel(private val project: Project) {
                                 currentMessage = StringBuilder()
                             }
 
-                            // Extract the content after "# Agent:" and strip ANSI codes
                             val cleanLine = stripAnsiCodes(line!!)
                             val agentPart = cleanLine.substringAfter("# Agent:")
 
-                            // Check if there's a robot emoji on the same line
                             if (agentPart.contains("🤖")) {
-                                // Extract content between "# Agent:" and the emoji
                                 val beforeEmoji = agentPart.substringBefore("🤖")
                                 if (beforeEmoji.isNotEmpty()) {
-                                    // Skip if the line contains crew information
-                                    if (!beforeEmoji.contains("🚀 Crew:") && 
-                                        !beforeEmoji.contains("├──") && 
-                                        !beforeEmoji.contains("│") && 
+                                    if (!beforeEmoji.contains("🚀 Crew:") &&
+                                        !beforeEmoji.contains("├──") &&
+                                        !beforeEmoji.contains("│") &&
                                         !beforeEmoji.contains("└──")) {
                                         currentMessage.append(beforeEmoji)
                                     }
                                 }
 
-                                // Display the collected message
                                 val messageText = stripAnsiCodes(currentMessage.toString().trim())
                                 if (messageText.isNotEmpty()) {
                                     SwingUtilities.invokeLater {
@@ -418,38 +449,30 @@ class TeamBuilderPanel(private val project: Project) {
                                     }
                                 }
 
-                                // Reset for the next message
                                 collectingMessage = false
                                 currentMessage = StringBuilder()
                             } else {
-                                // No emoji on this line, continue collecting
-                                // Format as "# Agent: Team Lead" followed by the task description
                                 if (agentPart.trim().isNotEmpty()) {
-                                    // Skip if the line contains crew information
-                                    if (!agentPart.contains("🚀 Crew:") && 
-                                        !agentPart.contains("├──") && 
-                                        !agentPart.contains("│") && 
+                                    if (!agentPart.contains("🚀 Crew:") &&
+                                        !agentPart.contains("├──") &&
+                                        !agentPart.contains("│") &&
                                         !agentPart.contains("└──")) {
                                         currentMessage.append(agentPart).append("\n")
                                     }
                                 }
                             }
                         } else if (collectingMessage) {
-                            // If we're collecting a message and encounter the robot emoji, stop collecting
                             if (line!!.contains("🤖")) {
-                                // Extract content before the emoji
                                 val beforeEmoji = line!!.substringBefore("🤖")
                                 if (beforeEmoji.isNotEmpty()) {
-                                    // Skip if the line contains crew information
-                                    if (!beforeEmoji.contains("🚀 Crew:") && 
-                                        !beforeEmoji.contains("├──") && 
-                                        !beforeEmoji.contains("│") && 
+                                    if (!beforeEmoji.contains("🚀 Crew:") &&
+                                        !beforeEmoji.contains("├──") &&
+                                        !beforeEmoji.contains("│") &&
                                         !beforeEmoji.contains("└──")) {
                                         currentMessage.append(beforeEmoji)
                                     }
                                 }
 
-                                // Display the collected message
                                 val messageText = stripAnsiCodes(currentMessage.toString().trim())
                                 if (messageText.isNotEmpty()) {
                                     SwingUtilities.invokeLater {
@@ -461,24 +484,19 @@ class TeamBuilderPanel(private val project: Project) {
                                     }
                                 }
 
-                                // Reset for the next message
                                 collectingMessage = false
                                 currentMessage = StringBuilder()
                             } else {
-                                // Skip lines containing crew information
-                                if (!line!!.startsWith("🚀 Crew:") && 
-                                    !line!!.startsWith("├──") && 
-                                    !line!!.startsWith("│") && 
+                                if (!line!!.startsWith("🚀 Crew:") &&
+                                    !line!!.startsWith("├──") &&
+                                    !line!!.startsWith("│") &&
                                     !line!!.startsWith("└──")) {
-                                    // Continue collecting the message
                                     currentMessage.append(line).append("\n")
                                 }
                             }
                         }
-                        // If not collecting a message, ignore the line
                     }
 
-                    // Display any remaining content if we were collecting a message
                     if (collectingMessage && currentMessage.isNotEmpty()) {
                         val messageText = stripAnsiCodes(currentMessage.toString().trim())
                         SwingUtilities.invokeLater {
@@ -508,10 +526,6 @@ class TeamBuilderPanel(private val project: Project) {
             chatContainer.repaint()
         }
 
-        // No need for the echo message anymore
-        // chatContainer.revalidate(); chatContainer.repaint()
-        // addBubble(isUser = false, text = "Echo: $txt")
-
         chatContainer.revalidate()
         chatContainer.repaint()
 
@@ -520,12 +534,9 @@ class TeamBuilderPanel(private val project: Project) {
         }
     }
 
-    // Helper function to filter out content before "## Tool Output" if "## Tool Input" is present
-    // and to filter out content starting from "You ONLY have access to the following tools" if present
     private fun filterToolOutput(text: String): String {
         var filteredText = text
 
-        // Filter out content before "## Tool Output" if "## Tool Input" is present
         if (filteredText.contains("## Tool Input")) {
             val toolOutputIndex = filteredText.indexOf("## Tool Output")
             if (toolOutputIndex != -1) {
@@ -533,7 +544,6 @@ class TeamBuilderPanel(private val project: Project) {
             }
         }
 
-        // Filter out content starting from "You ONLY have access to the following tools" if present
         val toolsIndex = filteredText.indexOf("You ONLY have access to the following tools")
         if (toolsIndex != -1) {
             filteredText = filteredText.substring(0, toolsIndex).trim()
@@ -542,38 +552,29 @@ class TeamBuilderPanel(private val project: Project) {
         return filteredText
     }
 
-    // Data class to hold both the role and the cleaned message
     private data class RoleAndMessage(val role: String?, val cleanedMessage: String)
 
-    // Helper function to extract role from messages that start with a role name
     private fun extractRoleFromMessage(text: String): String? {
-        // Check if the message starts with "## Tool Output:"
         if (text.trim().startsWith("## Tool Output:")) {
-            // Use the previous message's header
             return null
         }
 
-        // Check if the message starts with "# Agent:"
         if (text.contains("# Agent:")) {
             val agentPattern = "# Agent:\\s*([^\\n]+)".toRegex()
             val matchResult = agentPattern.find(text)
             return matchResult?.groupValues?.get(1)?.trim()
         }
 
-        // Check if the message starts with a role name (e.g., "Software Engineer")
         val rolePattern = "^(Software Engineer|Team Lead|QA Engineer)\\b".toRegex()
         val matchResult = rolePattern.find(text.trim())
         return matchResult?.groupValues?.get(1)?.trim()
     }
 
-    // Helper function to extract role and clean message content
     private fun extractRoleAndCleanMessage(text: String): RoleAndMessage {
         val role = extractRoleFromMessage(text)
         var cleanedMessage = text
 
-        // Clean the message by removing the role prefix
         if (role != null) {
-            // If the message contains "# Agent:", remove that part
             if (cleanedMessage.contains("# Agent:")) {
                 val agentPattern = "# Agent:\\s*([^\\n]+)".toRegex()
                 val matchResult = agentPattern.find(cleanedMessage)
@@ -582,7 +583,6 @@ class TeamBuilderPanel(private val project: Project) {
                     cleanedMessage = cleanedMessage.replaceFirst(fullMatch, "").trim()
                 }
             } else {
-                // If the message starts with a role name, remove it
                 val rolePattern = "^(Software Engineer|Team Lead|QA Engineer)\\b".toRegex()
                 val matchResult = rolePattern.find(cleanedMessage.trim())
                 if (matchResult != null) {
@@ -596,30 +596,24 @@ class TeamBuilderPanel(private val project: Project) {
     }
 
     private fun addBubble(isUser: Boolean, text: String) {
-        // Filter the text if it's not from the user
         val filteredText = if (!isUser) filterToolOutput(text) else text
 
-        // Variables to hold the header text and the cleaned message
         var headerText = ""
         var cleanedMessage = filteredText
 
         if (!isUser) {
-            // For the confirmation message, use the agent's name and don't clean the message
             if (text == "Got your request and sending it to the team...") {
                 headerText = "Internies"
             }
-            // For messages starting with "## Tool Output:", use the previous header and don't clean the message
             else if (filteredText.trim().startsWith("## Tool Output:")) {
                 headerText = lastMessageHeader
             }
-            // For other messages, extract the role and clean the message
             else {
                 val roleAndMessage = extractRoleAndCleanMessage(filteredText)
                 headerText = roleAndMessage.role ?: "Internies"
                 cleanedMessage = roleAndMessage.cleanedMessage
             }
 
-            // Update the last message header
             lastMessageHeader = headerText
 
             val header = JLabel(headerText).apply {
@@ -632,24 +626,19 @@ class TeamBuilderPanel(private val project: Project) {
             chatContainer.add(header)
         }
 
-        // The component that will be added to the bubble
         val bubbleContent: JComponent
 
-        // Check if the message contains code blocks with triple backticks
         if (!isUser && cleanedMessage.contains("```")) {
-            // Create a panel to hold the message components
             val messagePanel = JPanel().apply {
                 layout = BoxLayout(this, BoxLayout.Y_AXIS)
                 isOpaque = false
                 border = EmptyBorder(6, 8, 6, 8)
             }
 
-            // Split the message by code blocks
             val parts = cleanedMessage.split("```")
 
             for (i in parts.indices) {
                 if (i % 2 == 0) {
-                    // Regular text
                     if (parts[i].isNotEmpty()) {
                         val textArea = JTextArea(parts[i]).apply {
                             isEditable = false
@@ -661,7 +650,6 @@ class TeamBuilderPanel(private val project: Project) {
                         messagePanel.add(textArea)
                     }
                 } else {
-                    // Code block
                     val codeText = parts[i].trim()
                     if (codeText.isNotEmpty()) {
                         val codeArea = JTextArea(codeText).apply {
@@ -686,7 +674,6 @@ class TeamBuilderPanel(private val project: Project) {
 
             bubbleContent = messagePanel
         } else {
-            // Regular message without code blocks
             bubbleContent = JTextArea(cleanedMessage).apply {
                 isEditable = false
                 isOpaque = false
@@ -701,7 +688,6 @@ class TeamBuilderPanel(private val project: Project) {
             isOpaque = true
             border = LineBorder(JBColor.border(), 1, true)
             add(bubbleContent, BorderLayout.CENTER)
-            // Используем полную ширину окна для сообщений
             maximumSize = Dimension(Int.MAX_VALUE, Int.MAX_VALUE)
             alignmentX = Component.LEFT_ALIGNMENT
         }
@@ -709,7 +695,6 @@ class TeamBuilderPanel(private val project: Project) {
         chatContainer.add(Box.createVerticalStrut(6))
     }
 
-    // --- helper ---
     private fun hyperlink(text: String, onClick: () -> Unit) = JLabel("<html><u>$text</u></html>").apply {
         cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
         addMouseListener(object : java.awt.event.MouseAdapter() {
