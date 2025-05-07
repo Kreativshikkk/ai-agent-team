@@ -407,6 +407,47 @@ class TeamBuilderPanel(private val project: Project) {
 
                     while (reader.readLine().also { line = it } != null) {
                         println(line)
+
+                        // Check for "All tests passed! Mission accomplished." message
+                        if (line!!.contains("All tests passed! Mission accomplished.")) {
+                            SwingUtilities.invokeLater {
+                                // Create header with "Internies"
+                                val header = JLabel("Internies").apply {
+                                    font = font.deriveFont(Font.BOLD, 12f)
+                                    foreground = JBColor.GRAY
+                                    horizontalAlignment = SwingConstants.RIGHT
+                                    alignmentX = Component.RIGHT_ALIGNMENT
+                                    border = EmptyBorder(0, 0, 2, 0)
+                                }
+                                chatContainer.add(header)
+
+                                // Create bubble with "Mission accomplished. 🤘" message
+                                val bubbleContent = JTextArea("Mission accomplished. 🤘").apply {
+                                    isEditable = false
+                                    isOpaque = false
+                                    lineWrap = true
+                                    wrapStyleWord = true
+                                    border = EmptyBorder(6, 8, 6, 8)
+                                }
+
+                                val bubble = JPanel(BorderLayout()).apply {
+                                    background = JBColor.PanelBackground
+                                    isOpaque = true
+                                    border = LineBorder(JBColor.border(), 1, true)
+                                    add(bubbleContent, BorderLayout.CENTER)
+                                    maximumSize = Dimension(Int.MAX_VALUE, Int.MAX_VALUE)
+                                    alignmentX = Component.LEFT_ALIGNMENT
+                                }
+
+                                chatContainer.add(bubble)
+                                chatContainer.add(Box.createVerticalStrut(6))
+
+                                chatContainer.revalidate()
+                                chatContainer.repaint()
+                                scrollChatToBottom()
+                            }
+                        }
+
                         if (line!!.contains("# Agent:")) {
                             collectingMessage = true
 
