@@ -562,9 +562,17 @@ class TeamBuilderPanel(private val project: Project) {
             return matchResult?.groupValues?.get(1)?.trim()
         }
 
-        val rolePattern = "^(Software Engineer|Team Lead|QA Engineer)\\b".toRegex()
-        val matchResult = rolePattern.find(text.trim())
-        return matchResult?.groupValues?.get(1)?.trim()
+        // First try to match predefined roles
+        val predefinedRolePattern = "^(Software Engineer|Team Lead|QA Engineer)\\b".toRegex()
+        val predefinedMatchResult = predefinedRolePattern.find(text.trim())
+        if (predefinedMatchResult != null) {
+            return predefinedMatchResult.groupValues[1].trim()
+        }
+
+        // If no predefined role matches, try to match any role at the beginning of the message
+        val customRolePattern = "^([^\\n:]+?)(?:\\s*:|\\s*$)".toRegex()
+        val customMatchResult = customRolePattern.find(text.trim())
+        return customMatchResult?.groupValues?.get(1)?.trim()
     }
 
     private fun extractRoleAndCleanMessage(text: String): RoleAndMessage {
@@ -580,11 +588,20 @@ class TeamBuilderPanel(private val project: Project) {
                     cleanedMessage = cleanedMessage.replaceFirst(fullMatch, "").trim()
                 }
             } else {
-                val rolePattern = "^(Software Engineer|Team Lead|QA Engineer)\\b".toRegex()
-                val matchResult = rolePattern.find(cleanedMessage.trim())
-                if (matchResult != null) {
-                    val fullMatch = matchResult.value
+                // First try to match predefined roles
+                val predefinedRolePattern = "^(Software Engineer|Team Lead|QA Engineer)\\b".toRegex()
+                val predefinedMatchResult = predefinedRolePattern.find(cleanedMessage.trim())
+                if (predefinedMatchResult != null) {
+                    val fullMatch = predefinedMatchResult.value
                     cleanedMessage = cleanedMessage.replaceFirst(fullMatch, "").trim()
+                } else {
+                    // If no predefined role matches, try to match any role at the beginning of the message
+                    val customRolePattern = "^([^\\n:]+?)(?:\\s*:|\\s*$)".toRegex()
+                    val customMatchResult = customRolePattern.find(cleanedMessage.trim())
+                    if (customMatchResult != null) {
+                        val fullMatch = customMatchResult.value
+                        cleanedMessage = cleanedMessage.replaceFirst(fullMatch, "").trim()
+                    }
                 }
             }
         }
@@ -612,6 +629,10 @@ class TeamBuilderPanel(private val project: Project) {
             }
 
             lastMessageHeader = headerText
+
+            if ((filteredText.trim().startsWith("## Tool Output:") || filteredText.trim().startsWith("## Task:"))) {
+                return
+            }
 
             val header = JLabel(headerText).apply {
                 font = font.deriveFont(Font.BOLD, 12f)
