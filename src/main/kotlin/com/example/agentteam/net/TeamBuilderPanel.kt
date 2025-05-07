@@ -260,7 +260,7 @@ class TeamBuilderPanel(private val project: Project) {
         chatContainer.add(Box.createVerticalGlue())
         // 3) уже потом скролл с сообщениями
         val chatScroll = JScrollPane(
-            chatContainer, ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
+            chatContainer, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
         ).apply { preferredSize = Dimension(-1, 100) }
         add(chatScroll, BorderLayout.CENTER)
         inputField = JTextArea(3, 60).apply {
@@ -371,6 +371,7 @@ class TeamBuilderPanel(private val project: Project) {
                     var line: String?
 
                     while (reader.readLine().also { line = it } != null) {
+                        println(line)
                         if (line!!.contains("# Agent:")) {
                             // Start collecting a new message
                             collectingMessage = true
@@ -630,22 +631,79 @@ class TeamBuilderPanel(private val project: Project) {
             }
             chatContainer.add(header)
         }
-        val bubbleText = JTextArea(cleanedMessage).apply {
-            isEditable = false
-            isOpaque = false
-            lineWrap = true
-            wrapStyleWord = true
-            border = EmptyBorder(6, 8, 6, 8)
+
+        // The component that will be added to the bubble
+        val bubbleContent: JComponent
+
+        // Check if the message contains code blocks with triple backticks
+        if (!isUser && cleanedMessage.contains("```")) {
+            // Create a panel to hold the message components
+            val messagePanel = JPanel().apply {
+                layout = BoxLayout(this, BoxLayout.Y_AXIS)
+                isOpaque = false
+                border = EmptyBorder(6, 8, 6, 8)
+            }
+
+            // Split the message by code blocks
+            val parts = cleanedMessage.split("```")
+
+            for (i in parts.indices) {
+                if (i % 2 == 0) {
+                    // Regular text
+                    if (parts[i].isNotEmpty()) {
+                        val textArea = JTextArea(parts[i]).apply {
+                            isEditable = false
+                            isOpaque = false
+                            lineWrap = true
+                            wrapStyleWord = true
+                            border = EmptyBorder(0, 0, 0, 0)
+                        }
+                        messagePanel.add(textArea)
+                    }
+                } else {
+                    // Code block
+                    val codeText = parts[i].trim()
+                    if (codeText.isNotEmpty()) {
+                        val codeArea = JTextArea(codeText).apply {
+                            isEditable = false
+                            font = Font("Monospaced", Font.PLAIN, 12)
+                            background = JBColor(Color(240, 240, 240), Color(50, 50, 50))
+                            foreground = JBColor(Color(0, 0, 0), Color(200, 200, 200))
+                            lineWrap = true
+                            wrapStyleWord = true
+                            border = EmptyBorder(8, 8, 8, 8)
+                        }
+                        val codePanel = JPanel(BorderLayout()).apply {
+                            background = codeArea.background
+                            border = LineBorder(JBColor.border(), 1, true)
+                            add(codeArea, BorderLayout.CENTER)
+                        }
+                        messagePanel.add(codePanel)
+                        messagePanel.add(Box.createVerticalStrut(4))
+                    }
+                }
+            }
+
+            bubbleContent = messagePanel
+        } else {
+            // Regular message without code blocks
+            bubbleContent = JTextArea(cleanedMessage).apply {
+                isEditable = false
+                isOpaque = false
+                lineWrap = true
+                wrapStyleWord = true
+                border = EmptyBorder(6, 8, 6, 8)
+            }
         }
 
         val bubble = JPanel(BorderLayout()).apply {
             background = if (isUser) JBColor.LIGHT_GRAY else JBColor.PanelBackground
             isOpaque = true
             border = LineBorder(JBColor.border(), 1, true)
-            add(bubbleText, BorderLayout.CENTER)
-            // Ставим фиксированную ширину (высота пересчитается автоматически)
-            maximumSize = Dimension(300, Int.MAX_VALUE)
-            alignmentX = if (isUser) Component.LEFT_ALIGNMENT else Component.RIGHT_ALIGNMENT
+            add(bubbleContent, BorderLayout.CENTER)
+            // Используем полную ширину окна для сообщений
+            maximumSize = Dimension(Int.MAX_VALUE, Int.MAX_VALUE)
+            alignmentX = Component.LEFT_ALIGNMENT
         }
         chatContainer.add(bubble)
         chatContainer.add(Box.createVerticalStrut(6))

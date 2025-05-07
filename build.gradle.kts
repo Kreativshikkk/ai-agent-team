@@ -23,7 +23,7 @@ tasks.register<Exec>("runPython") {
     group = "python"
     description = "Запускает src/main/python/team.py"
     // Если нужен конкретный интерпретатор — поменяй на full path или virtualenv/bin/python
-    commandLine("python3", "$projectDir/src/main/python/team.py")
+    commandLine("python3.11", "$projectDir/src/main/python/team.py")
     // Если скрипт ждёт ввода или output большой, можно добавить:
     isIgnoreExitValue = false
 }
