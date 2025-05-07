@@ -11,7 +11,7 @@
     <depends>com.intellij.modules.platform</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow id="Internie"
+        <toolWindow id="Internies"
                     anchor="left"
                     factoryClass="com.example.agentteam.net.TeamBuilderToolWindowFactory"/>
     </extensions>

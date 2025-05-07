@@ -9,24 +9,21 @@ import javax.swing.*
 import javax.swing.border.EmptyBorder
 import javax.swing.border.LineBorder
 
-private data class Msg(val isUser: Boolean, val text: String)
-
 class TeamBuilderPanel(private val project: Project) {
 
-    // ─── widgets & state ─────────────────────────
-    private val tlSpin = JSpinner(SpinnerNumberModel(0, 0, 99, 1))
-    private val techSpin = JSpinner(SpinnerNumberModel(0, 0, 99, 1))
+    private val tlSpin = JSpinner(SpinnerNumberModel(1, 1, 1, 1)).apply {
+        value = 1
+        isEnabled = false
+    }
     private val engSpin = JSpinner(SpinnerNumberModel(0, 0, 99, 1))
     private val qaSpin = JSpinner(SpinnerNumberModel(0, 0, 99, 1))
     private val taskArea = JTextArea(3, 60)
     private val rolePrompts = mutableMapOf<String, String>()
     private var firstMessageSent = false
 
-    // chat state
     private lateinit var chatContainer: JPanel
     private lateinit var inputField: JTextArea
 
-    // cards
     private val rolesPanel = createRolesPanel()
     private val chatPanel = createChatPanel()
     private val cardPanel = JPanel(CardLayout()).apply {
@@ -36,30 +33,26 @@ class TeamBuilderPanel(private val project: Project) {
 
     val component: JPanel = cardPanel
 
-    // ─── Roles screen ─────────────────────────────
     private fun createRolesPanel(): JPanel = JPanel(BorderLayout()).apply {
-        // Banner or spacer
         val icon = IconLoader.getIcon("/icons/banner.png", TeamBuilderPanel::class.java)
         val bannerPanel = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply {
             add(JLabel(icon))
-            // Устанавливаем строго под размер картинки
             preferredSize = Dimension(icon.iconWidth, icon.iconHeight)
             maximumSize = preferredSize
         }
 
         val welcomeLabel = JLabel("Welcome! Let’s Kickstart Your Agent Team!").apply {
-            horizontalAlignment = SwingConstants.CENTER       // текст по центру
-            alignmentX = Component.CENTER_ALIGNMENT           // тоже центр в BoxLayout
-            font = font.deriveFont(Font.BOLD, 16f)             // чуть побольше и жирнее
-            foreground = JBColor.foreground()                  // цвет в соответствии с темой
-            border = EmptyBorder(10, 0, 10, 0)                  // 8px сверху и снизу от картинки
+            horizontalAlignment = SwingConstants.CENTER
+            alignmentX = Component.CENTER_ALIGNMENT
+            font = font.deriveFont(Font.BOLD, 16f)
+            foreground = JBColor.foreground()
+            border = EmptyBorder(10, 0, 10, 0)
         }
 
-// если вы оборачиваете баннер в northPanel:
         val northPanel = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             add(bannerPanel)
-            add(welcomeLabel)                                 // теперь сразу под картинкой
+            add(welcomeLabel)
         }
         add(northPanel, BorderLayout.NORTH)
 
@@ -67,22 +60,19 @@ class TeamBuilderPanel(private val project: Project) {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             border = EmptyBorder(8, 8, 8, 8)
             // начальные строки
-            add(roleRow("Team-leads", tlSpin, "teamLead")); add(Box.createVerticalStrut(8))
-            add(roleRow("Tech-leads", techSpin, "techLead")); add(Box.createVerticalStrut(8))
-            add(roleRow("Engineers", engSpin, "engineer")); add(Box.createVerticalStrut(8))
+            add(roleRow("Team-lead", tlSpin, "teamLead")); add(Box.createVerticalStrut(8))
+            add(roleRow("Software Engineers", engSpin, "softwareEngineer")); add(Box.createVerticalStrut(8))
             add(roleRow("QA Engineers", qaSpin, "qaEngineer")); add(Box.createVerticalStrut(8))
         }
         add(rolesBox, BorderLayout.CENTER)
 
-        // кнопка "+"
         val plusButton = JButton("+").apply {
-            toolTipText = "Добавить новую роль"
+            toolTipText = "Add new role to your team"
             addActionListener {
-                // --- строим форму ---
-                val roleField     = JTextField()
-                val goalField     = JTextField()
+                val roleField = JTextField()
+                val goalField = JTextField()
                 val backstoryArea = JTextArea(3, 20).apply {
-                    lineWrap      = true
+                    lineWrap = true
                     wrapStyleWord = true
                 }
                 val form = JPanel().apply {
@@ -94,13 +84,12 @@ class TeamBuilderPanel(private val project: Project) {
                     add(goalField); add(Box.createVerticalStrut(6))
                     add(JLabel("backstory"))
                     add(JScrollPane(backstoryArea).apply {
-                        verticalScrollBarPolicy   = ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER
+                        verticalScrollBarPolicy = ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER
                         horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
                         preferredSize = Dimension(-1, 60)
                     })
                 }
 
-                // --- показываем форму через DialogBuilder ---
                 val builder = com.intellij.openapi.ui.DialogBuilder(project).apply {
                     setTitle("Create New Role")
                     setCenterPanel(form)
@@ -110,13 +99,12 @@ class TeamBuilderPanel(private val project: Project) {
                 }
                 if (builder.show() != com.intellij.openapi.ui.DialogWrapper.OK_EXIT_CODE) return@addActionListener
 
-                // --- читаем значения и добавляем новую роль ---
-                val role  = roleField.text.trim().takeIf(String::isNotEmpty) ?: return@addActionListener
-                val goal      = goalField.text.trim()
+                val role = roleField.text.trim().takeIf(String::isNotEmpty) ?: return@addActionListener
+                val goal = goalField.text.trim()
                 val backstory = backstoryArea.text.trim()
 
-                val spinner = JSpinner(SpinnerNumberModel(0, 0, 99, 1))
-                val key     = role.replace("\\s+".toRegex(), "").decapitalize()
+                val spinner = JSpinner(SpinnerNumberModel(1, 0, 99, 1))
+                val key = role.replace("\\s+".toRegex(), "").decapitalize()
                 rolePrompts[key] = """
       role: $role
       goal: $goal
@@ -130,12 +118,11 @@ class TeamBuilderPanel(private val project: Project) {
             }
         }
 
-        // теперь формируем юг: сначала "+", потом Create Team
-        val createBtn = JButton("Create Team").apply {
+        val createBtn = JButton("Create Team!").apply {
             font = font.deriveFont(Font.BOLD, 16f)
             preferredSize = Dimension(-1, 100)
             addActionListener {
-                onSubmitRoles()      // ← здесь и вызывается ваш метод
+                onSubmitRoles()
             }
         }
 
@@ -169,27 +156,24 @@ class TeamBuilderPanel(private val project: Project) {
     private fun onSubmitRoles() {
         val config = TeamConfig(
             task = taskArea.text.trim(),
-            teamLeads = tlSpin.value as Int,
-            techLeads = techSpin.value as Int,
-            engineers = engSpin.value as Int,
+            teamLeads = 1,
+            softwareEngineers = engSpin.value as Int,
             qaEngineers = qaSpin.value as Int,
             globalPrompt = "",
             rolePrompts = rolePrompts.toMap()
         )
         TeamStore.get().add(config)
 
-        // Generate JSON crew file
         try {
             val crewGenerator = PythonCrewGenerator(project)
             crewGenerator.generateJsonFile(config)
         } catch (e: Exception) {
-            Messages.showErrorDialog(project, "Failed to generate JSON crew file: ${e.message}", "Internie")
+            Messages.showErrorDialog(project, "Failed to generate JSON crew file: ${e.message}", "Internies")
         }
 
         showChatScreen()
     }
 
-    // ─── Chat screen ─────────────────────────────
     private fun createChatPanel(): JPanel = JPanel(BorderLayout()).apply {
         add(JSeparator(SwingConstants.HORIZONTAL), BorderLayout.NORTH)
         chatContainer = JPanel().apply {
@@ -199,7 +183,7 @@ class TeamBuilderPanel(private val project: Project) {
         val infoPanel = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             border = EmptyBorder(0, 8, 12, 8)
-            add(JLabel("Это — ваш новый чат, здесь вы будете общаться с агентами").apply {
+            add(JLabel("This is your new chat, here you will communicate with agents").apply {
                 alignmentX = Component.CENTER_ALIGNMENT
                 font = font.deriveFont(Font.ITALIC, 12f)
                 foreground = JBColor.GRAY
@@ -210,7 +194,6 @@ class TeamBuilderPanel(private val project: Project) {
         chatContainer.add(infoPanel)
 
         chatContainer.add(Box.createVerticalGlue())
-        // 3) уже потом скролл с сообщениями
         val chatScroll = JScrollPane(
             chatContainer, ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
         ).apply { preferredSize = Dimension(-1, 100) }
@@ -241,17 +224,13 @@ class TeamBuilderPanel(private val project: Project) {
         val txt = inputField.text.trim().takeIf(String::isNotEmpty) ?: return
         inputField.text = ""
 
-        // при первом сообщении удаляем explanatory-блок и glues
         if (!firstMessageSent) {
             chatContainer.removeAll()
             firstMessageSent = true
         }
 
-        // добавляем bubble, как обычно
         addBubble(isUser = true, text = txt)
 
-        // Note: We now generate a JSON file instead of a Python script
-        // This execution logic might need to be updated in the future
         try {
             val pythonScriptPath = "${ConfigUtil.getPythonScriptsPath()}/team.py"
             val process = ProcessBuilder("python3.11", pythonScriptPath).redirectErrorStream(true).start()
@@ -331,7 +310,7 @@ class TeamBuilderPanel(private val project: Project) {
 
     private fun addBubble(isUser: Boolean, text: String) {
         if (!isUser) {
-            val header = JLabel("Internie").apply {
+            val header = JLabel("Internies").apply {
                 font = font.deriveFont(Font.BOLD, 12f)
                 foreground = JBColor.GRAY
                 horizontalAlignment = SwingConstants.RIGHT
@@ -361,7 +340,6 @@ class TeamBuilderPanel(private val project: Project) {
         chatContainer.add(Box.createVerticalStrut(6))
     }
 
-    // --- helper ---
     private fun hyperlink(text: String, onClick: () -> Unit) = JLabel("<html><u>$text</u></html>").apply {
         cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
         addMouseListener(object : java.awt.event.MouseAdapter() {

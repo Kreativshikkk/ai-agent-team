@@ -49,23 +49,10 @@ class PythonCrewGenerator(private val project: Project) {
             agentCount++
         }
 
-        // Tech Leads
-        for (i in 1..config.techLeads) {
-            if (agentCount > 0) sb.append(",\n")
-            val rolePrompt = config.rolePrompts["techLead"] ?: "You are a Tech Lead responsible for making technical decisions and guiding the development team."
-            sb.append("""  {
-    "role": "Tech Lead",
-    "goal": "Make technical decisions and guide the development team",
-    "backstory": "${rolePrompt.replace("\"", "\\\"")}",
-    "number": ${agentCount + 1}
-  }""")
-            agentCount++
-        }
-
         // Engineers
-        for (i in 1..config.engineers) {
+        for (i in 1..config.softwareEngineers) {
             if (agentCount > 0) sb.append(",\n")
-            val rolePrompt = config.rolePrompts["engineer"] ?: "You are a Software Engineer responsible for implementing the technical solutions."
+            val rolePrompt = config.rolePrompts["softwareEngineer"] ?: "You are a Software Engineer responsible for implementing the technical solutions."
             sb.append("""  {
     "role": "Software Engineer",
     "goal": "Implement technical solutions",

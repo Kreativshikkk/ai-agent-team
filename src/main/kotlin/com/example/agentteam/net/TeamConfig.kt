@@ -6,8 +6,7 @@ import kotlinx.serialization.Serializable
 data class TeamConfig(
     val task: String,
     val teamLeads: Int,
-    val techLeads: Int,
-    val engineers: Int,
+    val softwareEngineers: Int,
     val qaEngineers: Int,
 
     /** общий дополнительный prompt, который вводится ПОСЛЕ Submit */
