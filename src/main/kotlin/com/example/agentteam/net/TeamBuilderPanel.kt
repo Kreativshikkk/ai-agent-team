@@ -13,6 +13,8 @@ import java.util.regex.Pattern
 private data class Msg(val isUser: Boolean, val text: String)
 
 class TeamBuilderPanel(private val project: Project) {
+    // Track the last message header
+    private var lastMessageHeader = "Agent Team Builder"
 
     // Helper function to strip ANSI color codes
     private fun stripAnsiCodes(text: String): String {
@@ -446,9 +448,57 @@ class TeamBuilderPanel(private val project: Project) {
         }
     }
 
+    // Helper function to filter out content before "## Tool Output" if "## Tool Input" is present
+    private fun filterToolOutput(text: String): String {
+        if (text.contains("## Tool Input")) {
+            val toolOutputIndex = text.indexOf("## Tool Output")
+            if (toolOutputIndex != -1) {
+                return text.substring(toolOutputIndex)
+            }
+        }
+        return text
+    }
+
+    // Helper function to extract role from messages that start with a role name
+    private fun extractRoleFromMessage(text: String): String? {
+        // Check if the message starts with "## Tool Output:"
+        if (text.trim().startsWith("## Tool Output:")) {
+            // Use the previous message's header
+            return null
+        }
+
+        // Check if the message starts with "# Agent:"
+        if (text.contains("# Agent:")) {
+            val agentPattern = "# Agent:\\s*([^\\n]+)".toRegex()
+            val matchResult = agentPattern.find(text)
+            return matchResult?.groupValues?.get(1)?.trim()
+        }
+
+        // Check if the message starts with a role name (e.g., "Software Engineer")
+        val rolePattern = "^(Software Engineer|Team Lead|Tech Lead|QA Engineer)\\b".toRegex()
+        val matchResult = rolePattern.find(text.trim())
+        return matchResult?.groupValues?.get(1)?.trim()
+    }
+
     private fun addBubble(isUser: Boolean, text: String) {
+        // Filter the text if it's not from the user
+        val filteredText = if (!isUser) filterToolOutput(text) else text
+
         if (!isUser) {
-            val header = JLabel("Agent Team Builder").apply {
+            // Determine the header text
+            val headerText = when {
+                // For the confirmation message, use "Agent Team Builder"
+                text == "Got your request and sending it to the team..." -> "Agent Team Builder"
+                // For messages starting with "## Tool Output:", use the previous header
+                filteredText.trim().startsWith("## Tool Output:") -> lastMessageHeader
+                // For other messages, try to extract the role
+                else -> extractRoleFromMessage(filteredText) ?: "Agent Team Builder"
+            }
+
+            // Update the last message header
+            lastMessageHeader = headerText
+
+            val header = JLabel(headerText).apply {
                 font = font.deriveFont(Font.BOLD, 12f)
                 foreground = JBColor.GRAY
                 horizontalAlignment = SwingConstants.RIGHT
@@ -457,7 +507,7 @@ class TeamBuilderPanel(private val project: Project) {
             }
             chatContainer.add(header)
         }
-        val bubbleText = JTextArea(text).apply {
+        val bubbleText = JTextArea(filteredText).apply {
             isEditable = false
             isOpaque = false
             lineWrap = true
