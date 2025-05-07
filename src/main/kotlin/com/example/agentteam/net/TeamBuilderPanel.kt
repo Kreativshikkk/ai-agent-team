@@ -48,7 +48,6 @@ class TeamBuilderPanel(private val project: Project) {
     private fun createModelSelector(): JComboBox<String> {
         val models = arrayOf("Claude 3.5 Sonnet", "Claude 3 Opus", "GPT-4o", "GPT-3.5 Turbo")
         return JComboBox(models).apply {
-            // Увеличиваем ширину до 180 пикселей, чтобы текст полностью помещался
             preferredSize = Dimension(180, 25)
             maximumSize = preferredSize
         }
@@ -68,36 +67,35 @@ class TeamBuilderPanel(private val project: Project) {
             BorderLayout.NORTH
         )
 
+        val centerContentPanel = JPanel().apply {
+            layout = BoxLayout(this, BoxLayout.Y_AXIS)
+            border = EmptyBorder(0, 8, 0, 8)
+        }
+
         val icon = IconLoader.getIcon("/icons/banner.png", TeamBuilderPanel::class.java)
-        val bannerPanel = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply {
+        val bannerPanel = JPanel(FlowLayout(FlowLayout.CENTER, 0, 0)).apply {
             add(JLabel(icon))
             preferredSize = Dimension(icon.iconWidth, icon.iconHeight)
             maximumSize = preferredSize
-        }
-
-        val welcomeLabel = JLabel("Welcome! Let's Kickstart Your Agent Team!").apply {
-            horizontalAlignment = SwingConstants.CENTER
             alignmentX = Component.CENTER_ALIGNMENT
-            font = font.deriveFont(Font.BOLD, 16f)
-            foreground = JBColor.foreground()
-            border = EmptyBorder(10, 0, 10, 0)
         }
 
-        val centerPanel = JPanel().apply {
-            layout = BoxLayout(this, BoxLayout.Y_AXIS)
-            add(bannerPanel)
-            add(welcomeLabel)
-        }
-        add(centerPanel, BorderLayout.CENTER)
+
+        // Добавляем простую картинку без ограничений размера
+        centerContentPanel.add(bannerPanel)
 
         val rolesBox = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
-            border = EmptyBorder(8, 8, 8, 8)
+            border = EmptyBorder(50, 8, 8, 8)
+            alignmentX = Component.CENTER_ALIGNMENT
             add(roleRow("Team-leads", tlSpin, "teamLead")); add(Box.createVerticalStrut(8))
             add(roleRow("Software Engineers", engSpin, "engineer")); add(Box.createVerticalStrut(8))
             add(roleRow("QA Engineers", qaSpin, "qaEngineer")); add(Box.createVerticalStrut(8))
         }
-        add(rolesBox, BorderLayout.CENTER)
+
+        centerContentPanel.add(rolesBox)
+
+        add(centerContentPanel, BorderLayout.CENTER)
 
         plusButton = JButton("+").apply {
             toolTipText = "Add new role"
@@ -215,7 +213,6 @@ class TeamBuilderPanel(private val project: Project) {
                 roleModelSelectors[key] = modelSelector
             }
 
-            // Сначала добавляем спиннер, а затем селектор модели (изменён порядок)
             add(spinner)
             val modelSelector = roleModelSelectors[key]
             add(modelSelector)
