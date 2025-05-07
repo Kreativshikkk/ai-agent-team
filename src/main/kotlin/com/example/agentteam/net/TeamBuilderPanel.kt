@@ -7,6 +7,7 @@ import java.awt.*
 import javax.swing.*
 import javax.swing.border.EmptyBorder
 import javax.swing.border.LineBorder
+import com.example.agentteam.net.PythonCrewGenerator
 
 private data class Msg(val isUser: Boolean, val text: String)
 
@@ -94,7 +95,7 @@ class TeamBuilderPanel(private val project: Project) {
             Messages.showErrorDialog(project, "Task cannot be empty", "Agent Team Builder")
             return
         }
-        TeamStore.get().add(TeamConfig(
+        val config = TeamConfig(
             task         = taskArea.text.trim(),
             teamLeads    = tlSpin.value as Int,
             techLeads    = techSpin.value as Int,
@@ -102,7 +103,17 @@ class TeamBuilderPanel(private val project: Project) {
             qaEngineers  = qaSpin.value as Int,
             globalPrompt = "",
             rolePrompts  = rolePrompts.toMap()
-        ))
+        )
+        TeamStore.get().add(config)
+
+        // Generate Python crew file
+        try {
+            val pythonGenerator = PythonCrewGenerator(project)
+            pythonGenerator.generatePythonFile(config)
+        } catch (e: Exception) {
+            Messages.showErrorDialog(project, "Failed to generate Python crew file: ${e.message}", "Agent Team Builder")
+        }
+
         showChatScreen()
     }
 

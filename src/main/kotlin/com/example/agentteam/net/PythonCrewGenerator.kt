@@ -37,7 +37,7 @@ class PythonCrewGenerator(private val project: Project) {
 
         // Add agent definitions
         sb.append("# Define agents\n")
-        
+
         // Team Leads
         for (i in 1..config.teamLeads) {
             val rolePrompt = config.rolePrompts["teamLead"] ?: "You are a Team Lead responsible for coordinating the team and ensuring the project is completed successfully."
@@ -52,7 +52,7 @@ class PythonCrewGenerator(private val project: Project) {
             """.trimIndent())
             sb.append("\n\n")
         }
-        
+
         // Tech Leads
         for (i in 1..config.techLeads) {
             val rolePrompt = config.rolePrompts["techLead"] ?: "You are a Tech Lead responsible for making technical decisions and guiding the development team."
@@ -67,7 +67,7 @@ class PythonCrewGenerator(private val project: Project) {
             """.trimIndent())
             sb.append("\n\n")
         }
-        
+
         // Engineers
         for (i in 1..config.engineers) {
             val rolePrompt = config.rolePrompts["engineer"] ?: "You are a Software Engineer responsible for implementing the technical solutions."
@@ -82,7 +82,7 @@ class PythonCrewGenerator(private val project: Project) {
             """.trimIndent())
             sb.append("\n\n")
         }
-        
+
         // QA Engineers
         for (i in 1..config.qaEngineers) {
             val rolePrompt = config.rolePrompts["qaEngineer"] ?: "You are a QA Engineer responsible for testing and ensuring the quality of the software."
@@ -97,7 +97,7 @@ class PythonCrewGenerator(private val project: Project) {
             """.trimIndent())
             sb.append("\n\n")
         }
-        
+
         // Add task definitions
         sb.append("# Define tasks\n")
         sb.append("""
@@ -108,33 +108,33 @@ class PythonCrewGenerator(private val project: Project) {
             )
         """.trimIndent())
         sb.append("\n\n")
-        
+
         // Add crew definition
         sb.append("# Define crew\n")
         sb.append("agents = [\n")
-        
+
         // Add team leads to crew
         for (i in 1..config.teamLeads) {
             sb.append("    team_lead_$i,\n")
         }
-        
+
         // Add tech leads to crew
         for (i in 1..config.techLeads) {
             sb.append("    tech_lead_$i,\n")
         }
-        
+
         // Add engineers to crew
         for (i in 1..config.engineers) {
             sb.append("    engineer_$i,\n")
         }
-        
+
         // Add QA engineers to crew
         for (i in 1..config.qaEngineers) {
             sb.append("    qa_engineer_$i,\n")
         }
-        
+
         sb.append("]\n\n")
-        
+
         // Create and run the crew
         sb.append("""
             crew = Crew(
@@ -143,12 +143,12 @@ class PythonCrewGenerator(private val project: Project) {
                 process=Process.sequential,
                 verbose=True
             )
-            
+
             # Run the crew
             result = crew.kickoff()
             print(result)
         """.trimIndent())
-        
+
         return sb.toString()
     }
 
@@ -159,11 +159,17 @@ class PythonCrewGenerator(private val project: Project) {
      */
     private fun createPythonFile(content: String): VirtualFile {
         val basePath = project.basePath ?: throw IllegalStateException("Project base path is null")
-        val directory = File(basePath)
-        val file = File(directory, "crew_ai_team.py")
-        
+        val pluginPythonDir = File(basePath, "src/main/resources/python")
+        if (!pluginPythonDir.exists()) {
+            pluginPythonDir.mkdirs()
+        }
+
+        // Generate a unique filename based on timestamp
+        val timestamp = System.currentTimeMillis()
+        val file = File(pluginPythonDir, "crew_ai_team_$timestamp.py")
+
         file.writeText(content)
-        
+
         return LocalFileSystem.getInstance().refreshAndFindFileByIoFile(file)
             ?: throw IllegalStateException("Failed to create Python file")
     }
