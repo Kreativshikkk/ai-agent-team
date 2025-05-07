@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import os
 import json
 import prompts
+import configparser
 
 
 load_dotenv()
@@ -11,8 +12,19 @@ load_dotenv()
 file_writer = FileWriterTool()
 shell = CodeInterpreterTool()
 
+# Read config.properties to get base_path
+config = configparser.ConfigParser()
+config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'main', 'resources', 'config.properties')
+with open(config_path, 'r') as config_file:
+    # Add a section header since ConfigParser requires sections
+    config_content = '[DEFAULT]\n' + config_file.read()
+    config.read_string(config_content)
+
+base_path = config['DEFAULT']['base_path']
+crew_json_path = os.path.join(base_path, 'src', 'main', 'python', 'crew.json')
+
 # Load agents from crew.json
-with open('crew.json', 'r') as f:
+with open(crew_json_path, 'r') as f:
     crew_data = json.load(f)
 
 # Create agents from crew.json

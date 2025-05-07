@@ -253,8 +253,8 @@ class TeamBuilderPanel(private val project: Project) {
         // Note: We now generate a JSON file instead of a Python script
         // This execution logic might need to be updated in the future
         try {
-            val pythonScriptPath = "${ConfigUtil.getPythonScriptsPath()}/crew_ai_team.py"
-            val process = ProcessBuilder("python3", pythonScriptPath).redirectErrorStream(true).start()
+            val pythonScriptPath = "${ConfigUtil.getPythonScriptsPath()}/team.py"
+            val process = ProcessBuilder("python3.11", pythonScriptPath).redirectErrorStream(true).start()
 
             val output = process.inputStream.bufferedReader().use { it.readText() }
             addBubble(isUser = false, text = output.ifEmpty { "Script executed with no output" })
