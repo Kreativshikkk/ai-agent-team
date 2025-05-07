@@ -8,10 +8,17 @@ import java.awt.*
 import javax.swing.*
 import javax.swing.border.EmptyBorder
 import javax.swing.border.LineBorder
+import java.util.regex.Pattern
 
 private data class Msg(val isUser: Boolean, val text: String)
 
 class TeamBuilderPanel(private val project: Project) {
+
+    // Helper function to strip ANSI color codes
+    private fun stripAnsiCodes(text: String): String {
+        val ansiPattern = Pattern.compile("\u001B\\[[;\\d]*m")
+        return ansiPattern.matcher(text).replaceAll("")
+    }
 
     // ─── widgets & state ─────────────────────────
     private val tlSpin = JSpinner(SpinnerNumberModel(0, 0, 99, 1))
@@ -250,6 +257,17 @@ class TeamBuilderPanel(private val project: Project) {
         // добавляем bubble, как обычно
         addBubble(isUser = true, text = txt)
 
+        // Add confirmation message before executing the Python script
+        addBubble(isUser = false, text = "Got your request and sending it to the team...")
+        chatContainer.revalidate()
+        chatContainer.repaint()
+
+        // Scroll to show the confirmation message
+        SwingUtilities.invokeLater {
+            val vsb = (chatContainer.parent as JScrollPane).verticalScrollBar
+            vsb.value = vsb.maximum
+        }
+
         // Note: We now generate a JSON file instead of a Python script
         // This execution logic might need to be updated in the future
         try {
@@ -260,14 +278,18 @@ class TeamBuilderPanel(private val project: Project) {
             Thread {
                 try {
                     val reader = process.inputStream.bufferedReader()
+                    var collectingMessage = false
                     var currentMessage = StringBuilder()
                     var line: String?
 
                     while (reader.readLine().also { line = it } != null) {
                         if (line!!.contains("# Agent:")) {
-                            // If we have a current message buffer, display it
+                            // Start collecting a new message
+                            collectingMessage = true
+
+                            // If we already have a message buffer, display it first
                             if (currentMessage.isNotEmpty()) {
-                                val messageText = currentMessage.toString().trim()
+                                val messageText = stripAnsiCodes(currentMessage.toString().trim())
                                 SwingUtilities.invokeLater {
                                     addBubble(isUser = false, text = messageText)
                                     chatContainer.revalidate()
@@ -278,17 +300,99 @@ class TeamBuilderPanel(private val project: Project) {
                                 currentMessage = StringBuilder()
                             }
 
-                            // Start a new message with the current line
-                            currentMessage.append(line).append("\n")
-                        } else {
-                            // Add to the current message buffer
-                            currentMessage.append(line).append("\n")
+                            // Extract the content after "# Agent:" and strip ANSI codes
+                            val cleanLine = stripAnsiCodes(line!!)
+                            val agentPart = cleanLine.substringAfter("# Agent:")
+
+                            // Check if there's a robot emoji on the same line
+                            if (agentPart.contains("🤖")) {
+                                // Extract content between "# Agent:" and the emoji
+                                val beforeEmoji = agentPart.substringBefore("🤖")
+                                if (beforeEmoji.isNotEmpty()) {
+                                    // Skip if the line contains crew information
+                                    if (!beforeEmoji.contains("🚀 Crew:") && 
+                                        !beforeEmoji.contains("├──") && 
+                                        !beforeEmoji.contains("│") && 
+                                        !beforeEmoji.contains("└──")) {
+                                        currentMessage.append(beforeEmoji)
+                                    }
+                                }
+
+                                // Display the collected message
+                                val messageText = stripAnsiCodes(currentMessage.toString().trim())
+                                if (messageText.isNotEmpty()) {
+                                    SwingUtilities.invokeLater {
+                                        addBubble(isUser = false, text = messageText)
+                                        chatContainer.revalidate()
+                                        chatContainer.repaint()
+                                        val vsb = (chatContainer.parent as JScrollPane).verticalScrollBar
+                                        vsb.value = vsb.maximum
+                                    }
+                                }
+
+                                // Reset for the next message
+                                collectingMessage = false
+                                currentMessage = StringBuilder()
+                            } else {
+                                // No emoji on this line, continue collecting
+                                // Format as "# Agent: Team Lead" followed by the task description
+                                if (agentPart.trim().isNotEmpty()) {
+                                    // Skip if the line contains crew information
+                                    if (!agentPart.contains("🚀 Crew:") && 
+                                        !agentPart.contains("├──") && 
+                                        !agentPart.contains("│") && 
+                                        !agentPart.contains("└──")) {
+                                        currentMessage.append(agentPart).append("\n")
+                                    }
+                                }
+                            }
+                        } else if (collectingMessage) {
+                            // If we're collecting a message and encounter the robot emoji, stop collecting
+                            if (line!!.contains("🤖")) {
+                                // Extract content before the emoji
+                                val beforeEmoji = line!!.substringBefore("🤖")
+                                if (beforeEmoji.isNotEmpty()) {
+                                    // Skip if the line contains crew information
+                                    if (!beforeEmoji.contains("🚀 Crew:") && 
+                                        !beforeEmoji.contains("├──") && 
+                                        !beforeEmoji.contains("│") && 
+                                        !beforeEmoji.contains("└──")) {
+                                        currentMessage.append(beforeEmoji)
+                                    }
+                                }
+
+                                // Display the collected message
+                                val messageText = stripAnsiCodes(currentMessage.toString().trim())
+                                if (messageText.isNotEmpty()) {
+                                    SwingUtilities.invokeLater {
+                                        addBubble(isUser = false, text = messageText)
+                                        chatContainer.revalidate()
+                                        chatContainer.repaint()
+                                        val vsb = (chatContainer.parent as JScrollPane).verticalScrollBar
+                                        vsb.value = vsb.maximum
+                                    }
+                                }
+
+                                // Reset for the next message
+                                collectingMessage = false
+                                currentMessage = StringBuilder()
+                            } else {
+                                // Skip lines containing crew information
+                                if (!line!!.startsWith("🚀 Crew:") && 
+                                    !line!!.startsWith("├──") && 
+                                    !line!!.startsWith("│") && 
+                                    !line!!.startsWith("└──")) {
+                                    // Continue collecting the message
+                                    currentMessage.append(line).append("\n")
+                                }
+                            }
                         }
+                        // If not collecting a message, ignore the line
                     }
 
-                    // Display any remaining content
-                    if (currentMessage.isNotEmpty()) {
-                        val messageText = currentMessage.toString().trim()
+                    // Display any remaining content if we were collecting a message
+                    if (collectingMessage && currentMessage.isNotEmpty()) {
+                        val messageText = stripAnsiCodes(currentMessage.toString().trim())
                         SwingUtilities.invokeLater {
                             addBubble(isUser = false, text = messageText)
                             chatContainer.revalidate()
