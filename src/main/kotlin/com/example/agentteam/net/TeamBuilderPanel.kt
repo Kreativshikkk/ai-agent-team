@@ -46,7 +46,7 @@ class TeamBuilderPanel(private val project: Project) {
     val component: JPanel = cardPanel
 
     private fun createModelSelector(): JComboBox<String> {
-        val models = arrayOf("Claude 3.5 Sonnet", "Claude 3 Opus", "GPT-4o", "GPT-3.5 Turbo")
+        val models = arrayOf("Gemini 2.0 Flash", "Claude 3.5 Sonnet", "GPT-4o", "GPT-3.5 Turbo")
         return JComboBox(models).apply {
             preferredSize = Dimension(180, 25)
             maximumSize = preferredSize
