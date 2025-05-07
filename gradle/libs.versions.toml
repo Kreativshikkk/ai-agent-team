@@ -1,7 +1,7 @@
 [versions]
 kotlin                 = "2.0.20"
 intellij-platform      = "2.5.0"
-kotlinx-serialization-json = "1.7.2"
+kotlinx-serialization-json = "1.8.1"
 junit                  = "5.10.2"
 
 [plugins]
