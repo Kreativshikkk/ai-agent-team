@@ -5,6 +5,7 @@ import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.IconLoader
 import com.intellij.ui.JBColor
 import java.awt.*
+import java.nio.file.Paths
 import javax.swing.*
 import javax.swing.border.EmptyBorder
 import javax.swing.border.LineBorder
@@ -396,7 +397,11 @@ class TeamBuilderPanel(private val project: Project) {
 
         try {
             val pythonScriptPath = "${ConfigUtil.getPythonScriptsPath()}/team.py"
-            val process = ProcessBuilder("python3.11", pythonScriptPath, txt).redirectErrorStream(true).start()
+            val venvActivatePath = Paths.get(pythonScriptPath).parent.resolve("../.venv/bin/activate").normalize().toString()
+            // Pass the user input as a command-line argument to the Python script
+            val process = ProcessBuilder("/bin/bash", "-c", "source $venvActivatePath && python3 $pythonScriptPath")
+                .redirectErrorStream(true)
+                .start()
 
             Thread {
                 try {
