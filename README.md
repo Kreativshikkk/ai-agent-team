@@ -41,8 +41,24 @@ Before running the plugin, you need to create a configuration file that specifie
    ```
 
    ⚠️ Be sure to replace the example with the actual full path to the `ai-agent-team` folder on your system.
+### 3. Setup the Python Environment
+It is highly recommended to use a virtual environment to run Python scripts properly.
+1. Go to the following directory:
+   ```
+   ai-agent-team/src/main
+   ```
+2. Create a virtual environment:
+   ```bash
+    python3 -m venv .venv
+    ```
+3. Install neccesary dependencies:
+    ```bash
+     pip install crewai crewai-tools dotenv pytest
+     ```
 
-### 3. Run the Plugin
+
+
+### 4. Run the Plugin
 
 From the root of the project, run the following command in your terminal:
 
